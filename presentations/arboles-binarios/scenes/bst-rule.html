@@ -1,0 +1,130 @@
+<!--
+  bst-rule — the tree grows in insertion order, then pencil outlines show that everything left of
+  the root is smaller and everything right is bigger, and that the rule repeats at every node.
+  Uses the centred layout of bst-tree.js so the cut into bst-walk is seamless.
+-->
+<template>
+  <style>
+    .hull { fill: none; stroke: var(--ink); stroke-width: 4; }
+    .hull-label-bg { fill: var(--paper); }
+    .order { fill: var(--ink); }
+    .order-focus { fill: var(--accent); }
+    .drop { stroke: var(--muted); stroke-width: 4; stroke-linecap: round; }
+    .ring { fill: none; stroke: var(--accent); stroke-width: 9; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/bst-tree.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const { bstTree } = window;
+    const { CENTERED, LAYOUT } = bstTree;
+    const toCanvas = ({ x, y }) => ({ x: x * CENTERED.scale + CENTERED.x, y: y * CENTERED.scale + CENTERED.y });
+    const RADIUS = LAYOUT.radius * CENTERED.scale;
+
+    registerScene({
+      id: "bst-rule",
+      props: {
+        values: [50, 30, 70, 20, 40, 80], // insertion order
+        slot: 60, // empty spot drawn dashed (null for none)
+        focus: 30, // node used to show the rule repeats
+      },
+      steps: ["arbol", "izquierda", "derecha", "cada-nodo"],
+      build(root, props, gsap) {
+        addStyles(root);
+        addStyles(root, bstTree.CSS);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        const group = svg("g", { class: "tree" }, stage);
+        gsap.set(group, { ...CENTERED, svgOrigin: "0 0" });
+        const tree = bstTree.draw(group, props.values, { slot: props.slot });
+
+        const headline = block(root, "La regla", { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.5);
+        growTree(tl, tree, props.values);
+        tl.addLabel("arbol");
+
+        const rootNode = tree.tree.root;
+        const left = outline(stage, tree, bstTree.subtree(tree.tree, rootNode.left.value), `todos < ${rootNode.value}`);
+        reveal(tl, left);
+        tl.addLabel("izquierda");
+
+        const rightValues = bstTree.subtree(tree.tree, rootNode.right.value);
+        const right = outline(stage, tree, rightValues, `todos > ${rootNode.value}`, tree.slot);
+        reveal(tl, right);
+        tl.addLabel("derecha");
+
+        repeatAtNode(tl, { stage, tree, focus: props.focus, outlines: [left, right] });
+        tl.addLabel("cada-nodo");
+        return tl;
+      },
+    });
+
+    // Edge first (a pen stroke from the parent), then the node is drawn on its spot.
+    function growTree(tl, tree, values) {
+      values.forEach((value, i) => {
+        const node = tree.nodes.get(value);
+        const at = 0.3 + i * 0.32;
+        const edge = tree.edges.get(value);
+        if (edge) tl.from(edge, { drawSVG: 0, duration: 0.35, ease: "power2.out" }, at);
+        tl.from(node.circle, { drawSVG: 0, fillOpacity: 0, duration: 0.45, ease: "power2.out" }, at + 0.15);
+        tl.from(node.label, { scale: 0.5, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at + 0.25);
+      });
+      if (tree.slot) {
+        // Dashed strokes cannot use drawSVG (it rewrites the dash pattern): they fade in instead.
+        tl.from(tree.slot.edge, { opacity: 0, duration: 0.35, ease: "power2.out" }, ">-0.1");
+        tl.from(tree.slot.circle, { scale: 0.6, opacity: 0, transformOrigin: "50% 50%", duration: 0.45, ease: "expo.out" }, "<0.1");
+      }
+    }
+
+    // A dashed pencil outline around some nodes, with its label sitting on the bottom edge.
+    function outline(stage, tree, values, label, extra = null) {
+      const points = values.map((v) => toCanvas(tree.nodes.get(v)));
+      if (extra) points.push(toCanvas(extra));
+      const pad = RADIUS + 24;
+      const x1 = Math.min(...points.map((p) => p.x)) - pad;
+      const x2 = Math.max(...points.map((p) => p.x)) + pad;
+      const y1 = Math.min(...points.map((p) => p.y)) - pad;
+      const y2 = Math.max(...points.map((p) => p.y)) + pad + 28;
+      const g = svg("g", {}, stage);
+      const rect = svg("rect", { class: "hull", x: x1, y: y1, width: x2 - x1, height: y2 - y1, rx: 70 }, g);
+      const labelG = svg("g", {}, g);
+      const bg = svg("rect", { class: "hull-label-bg", height: 72, y: y2 - 36 }, labelG);
+      const t = text(labelG, label, { class: "t56 mid", x: (x1 + x2) / 2, y: y2 + 2 });
+      const width = t.getComputedTextLength() + 40;
+      bg.setAttribute("x", (x1 + x2) / 2 - width / 2);
+      bg.setAttribute("width", width);
+      return { g, rect, labelG };
+    }
+
+    function reveal(tl, { rect, labelG }) {
+      tl.from(rect, { drawSVG: 0, duration: 0.8, ease: "power2.inOut" });
+      writeIn(tl, labelG, "<0.4", 0.5);
+    }
+
+    // The outlines leave; the focus node's children spell the rule in order under the tree.
+    function repeatAtNode(tl, { stage, tree, focus, outlines }) {
+      tl.to(outlines.map((o) => o.g), { opacity: 0, duration: 0.3, ease: "power3.in" });
+      const node = tree.nodes.get(focus);
+      const ring = svg("circle", { class: "ring", r: LAYOUT.radius }, node.g);
+      tl.from(ring, { drawSVG: 0, duration: 0.45, ease: "power2.out" }, ">");
+      const kids = [node.model.left, node.model, node.model.right].filter(Boolean);
+      const y = 960;
+      const drops = svg("g", {}, stage);
+      kids.forEach((kid, i) => {
+        const at = toCanvas(tree.nodes.get(kid.value));
+        const line = svg("line", { class: "drop", x1: at.x, y1: at.y + RADIUS + 10, x2: at.x, y2: y - 52 }, drops);
+        const t = text(stage, String(kid.value), { class: `t56 mid num ${kid.value === focus ? "order-focus" : "order"}`, x: at.x, y });
+        tl.from(line, { drawSVG: 0, duration: 0.35, ease: "power2.out" }, `>-${i === 0 ? 0.1 : 0.25}`);
+        tl.from(t, { y: -40, opacity: 0, duration: 0.45, ease: "expo.out" }, "<0.15");
+        if (i < kids.length - 1) {
+          const next = toCanvas(tree.nodes.get(kids[i + 1].value));
+          const sign = text(stage, "<", { class: "t56 mid order", x: (at.x + next.x) / 2, y });
+          tl.from(sign, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, "<0.2");
+        }
+      });
+    }
+  })();
+</script>

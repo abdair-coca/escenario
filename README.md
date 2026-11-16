@@ -11,6 +11,7 @@ npm start
 ```
 
 Then open `http://localhost:3000/player/index.html?p=<slug>` — `<slug>` is a folder in `presentations/`.
+The demo: `http://localhost:3000/player/index.html?p=arboles-binarios` (binary search trees with Python, in Spanish).
 The URL keeps the scene and step (`&s=3&k=2`), so reloading resumes where you were.
 
 ## Shortcuts

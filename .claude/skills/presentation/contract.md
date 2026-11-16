@@ -55,6 +55,16 @@ The template is mounted in a shadow root, so its styles only touch this scene.
   - Canvas/WebGL: draw in an `onUpdate` of a tween on the timeline, from the tween's progress.
   - Random layouts: use a seeded generator written in the scene.
 
+## Pitfalls found in review
+
+- DrawSVG rewrites `stroke-dasharray`: animate dashed strokes with opacity or scale, never `drawSVG`.
+- In SVG, `transformOrigin` is measured from the element's bounding box, which changes as content is added.
+  For layout transforms use `svgOrigin` (user-space coordinates).
+- A scene default such as `.canvas text { fill }` outranks single-class colour rules; wrap shared defaults
+  in `:where()` so scene classes win.
+- `gsap.from` on an element that must stay hidden until its step needs `opacity: 0` (or a draw/clip) as well
+  as the movement; otherwise it sits visible in its start position.
+
 ## Theme
 
 `presentations/<slug>/theme.css` is linked at document level. Custom properties cross the shadow root,
@@ -114,5 +124,8 @@ Set on the scene that is **entering**. Pick the one that something on screen mot
 | `zoom` | `target`: selector in the outgoing scene, `duration` | we go inside an element |
 | `reveal` | `target`: selector in the outgoing scene, `duration` | the new scene grows out of an element |
 | `wipe` | `color`, `direction`, `duration` | a clean break to a new topic |
+
+Every transition except `cut` also takes `handoff` (0–1): how far it runs before the incoming scene
+starts its entrance (default 0.6; `reveal` 0.15, so the new scene grows inside the opening circle).
 
 ← never plays a transition; it cuts to the previous step's rest state.

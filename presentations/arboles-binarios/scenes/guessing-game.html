@@ -1,0 +1,183 @@
+<!--
+  guessing-game — "Adivina mi número": a ruler 1–100, three higher/lower questions that each
+  throw away part of the ruler, and the three asked numbers settling into a small tree.
+-->
+<template>
+  <style>
+    .ruler line { stroke: var(--ink); stroke-linecap: round; }
+    .ruler .main { stroke-width: 8; }
+    .ruler .tick { stroke-width: 4; }
+    .ruler .minor { stroke-width: 3; }
+    .stick { stroke: var(--ink); stroke-width: 5; stroke-linecap: round; }
+    .head circle { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .bubble rect { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+    .bubble .answer { fill: var(--accent-3); }
+    .bubble .yes { fill: var(--ink); }
+    .bubble .yes-bg { fill: var(--accent-2); stroke: none; }
+    .marker { fill: var(--accent-2); }
+    .edge { stroke: var(--ink); stroke-width: 5; stroke-linecap: round; }
+    .edge-label { fill: var(--accent-3); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const RULER_Y = 640;
+    const HEAD_Y = 470;
+    const BUBBLE_Y = 330;
+    const xOf = (n) => 160 + ((n - 1) / 99) * 1600;
+    // Where the asked numbers settle as a tree in the last step.
+    const TREE = { 50: { x: 860, y: 340 }, 70: { x: 1080, y: 540 }, 60: { x: 970, y: 740 } };
+
+    registerScene({
+      id: "guessing-game",
+      props: {
+        secret: 60, // the number being guessed
+        questions: [
+          { value: 50, answer: "Mayor" },
+          { value: 70, answer: "Menor" },
+          { value: 60, answer: "¡Sí!" },
+        ], // asked in order; the last one is the secret
+      },
+      steps: ["regla", "pregunta-50", "pregunta-70", "pregunta-60", "arbol"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+
+        const headline = block(root, "Pensé un número del 1 al 100", { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.7);
+        const ruler = drawRuler(stage);
+        tl.from(ruler.segments.map((s) => s.main), { drawSVG: 0, duration: 0.5, ease: "none", stagger: 0.5 }, 0.3);
+        tl.from(ruler.ticks, { scaleY: 0, transformOrigin: "50% 100%", duration: 0.3, ease: "expo.out", stagger: 0.02 }, 0.4);
+        tl.from(ruler.labels, { y: -20, opacity: 0, duration: 0.4, ease: "expo.out", stagger: 0.06 }, 0.8);
+        tl.addLabel("regla");
+
+        const pins = new Map();
+        let previousBubble = null;
+        let count = null;
+        props.questions.forEach(({ value, answer }, index) => {
+          const pin = drawPin(stage, value);
+          pins.set(value, pin);
+          if (previousBubble) tl.to(previousBubble, { y: -40, opacity: 0, duration: 0.25, ease: "power3.in" });
+          tl.from(pin.stick, { drawSVG: 0, duration: 0.35, ease: "power2.out" });
+          tl.from(pin.head, { y: HEAD_Y - 90, opacity: 0, duration: 0.6, ease: "expo.out" }, "<0.15");
+          const isSecret = value === props.secret;
+          const bubble = drawBubble(stage, value, answer, isSecret);
+          tl.from(bubble.g, { scale: 0.7, opacity: 0, transformOrigin: "50% 100%", duration: 0.45, ease: "expo.out" }, "<0.2");
+          tl.from(bubble.answer, { scale: 1.8, opacity: 0, rotation: -12, transformOrigin: "50% 50%", duration: 0.5, ease: "expo.out" }, ">0.25");
+          if (!isSecret) discard(tl, ruler, value, answer === "Mayor" ? "below" : "above");
+          else count = markSecret(tl, root, pin);
+          tl.addLabel(`pregunta-${value}`);
+          previousBubble = bubble.g;
+        });
+
+        settleIntoTree(tl, { stage, root, headline, ruler, pins, bubble: previousBubble, count });
+        return tl;
+      },
+    });
+
+    function drawRuler(stage) {
+      const g = svg("g", { class: "ruler" }, stage);
+      const cuts = [1, 50, 70, 100];
+      const segments = cuts.slice(0, -1).map((from, i) => {
+        const group = svg("g", { "data-from": from, "data-to": cuts[i + 1] }, g);
+        const main = svg("line", { class: "main", x1: xOf(from), y1: RULER_Y, x2: xOf(cuts[i + 1]), y2: RULER_Y }, group);
+        return { group, main, from, to: cuts[i + 1] };
+      });
+      const segmentOf = (n) => segments.find((s) => n >= s.from && n < s.to) ?? segments[segments.length - 1];
+      const ticks = [];
+      const labels = [];
+      for (let n = 5; n < 100; n += 5) {
+        const minor = svg("line", { class: "minor", x1: xOf(n), y1: RULER_Y - 14, x2: xOf(n), y2: RULER_Y, "data-decor": "" }, segmentOf(n).group);
+        ticks.push(minor);
+      }
+      for (const n of [1, 25, 75, 100]) {
+        const tick = svg("line", { class: "tick", x1: xOf(n), y1: RULER_Y - 28, x2: xOf(n), y2: RULER_Y + 4 }, segmentOf(n).group);
+        ticks.push(tick);
+        labels.push(text(segmentOf(n).group, String(n), { x: xOf(n), y: RULER_Y + 60, class: "t40 mid num" }));
+      }
+      return { g, segments, ticks, labels };
+    }
+
+    function drawPin(stage, value) {
+      const x = xOf(value);
+      const g = svg("g", { class: `pin pin-${value}` }, stage);
+      const stick = svg("line", { class: "stick", x1: x, y1: RULER_Y, x2: x, y2: HEAD_Y + 52 }, g);
+      const head = svg("g", { class: `head head-${value}` }, g);
+      gsap.set(head, { x, y: HEAD_Y });
+      const circle = svg("circle", { r: 52 }, head);
+      text(head, String(value), { class: "t56 mid num", y: 2 });
+      return { g, stick, head, circle, x };
+    }
+
+    function drawBubble(stage, value, answer, isSecret) {
+      const g = svg("g", { class: "bubble" }, stage);
+      const rect = svg("rect", { rx: 24, height: 104, y: BUBBLE_Y - 52 }, g);
+      const question = text(g, `¿Es ${value}?`, { class: "t72", y: BUBBLE_Y + 26 });
+      const answerG = svg("g", {}, g);
+      const answerBg = isSecret ? svg("rect", { class: "yes-bg", rx: 14, height: 80, y: BUBBLE_Y - 40 }, answerG) : null;
+      const answerText = text(answerG, answer, { class: `t56 ${isSecret ? "yes" : "answer"}`, y: BUBBLE_Y + 20 });
+      const qWidth = question.getComputedTextLength();
+      const aWidth = answerText.getComputedTextLength();
+      const gap = 36;
+      const pad = 40;
+      const width = pad + qWidth + gap + aWidth + pad;
+      const left = Math.min(Math.max(xOf(value) - width / 2, 110), 1810 - width);
+      rect.setAttribute("x", left);
+      rect.setAttribute("width", width);
+      question.setAttribute("x", left + pad);
+      answerText.setAttribute("x", left + pad + qWidth + gap);
+      if (answerBg) {
+        answerBg.setAttribute("x", left + pad + qWidth + gap - 14);
+        answerBg.setAttribute("width", aWidth + 28);
+      }
+      return { g, answer: answerG };
+    }
+
+    // The part of the ruler the answer rules out turns grey and drops off the line.
+    function discard(tl, ruler, value, side) {
+      const out = ruler.segments.filter((s) => (side === "below" ? s.to <= value : s.from >= value));
+      const groups = out.map((s) => s.group);
+      tl.to(groups.flatMap((g) => [...g.querySelectorAll("line")]), { stroke: "var(--muted)", duration: 0.3, ease: "power2.out" }, ">0.1");
+      tl.to(groups.flatMap((g) => [...g.querySelectorAll("text")]), { fill: "var(--muted)", duration: 0.3, ease: "power2.out" }, "<");
+      tl.to(groups, { y: 36, duration: 0.5, ease: "expo.out" }, "<0.1");
+    }
+
+    function markSecret(tl, root, pin) {
+      tl.to(pin.circle, { fill: "var(--accent-2)", duration: 0.3, ease: "power2.out" }, "<0.1");
+      const count = block(root, "3 preguntas", { x: 660, y: 800, className: "t72", width: 600 });
+      count.style.textAlign = "center";
+      writeIn(tl, count, "<0.2", 0.5);
+      return count;
+    }
+
+    function settleIntoTree(tl, { stage, root, headline, ruler, pins, bubble, count }) {
+      tl.to([bubble, count], { opacity: 0, duration: 0.25, ease: "power3.in" });
+      tl.to([ruler.g, ...[...pins.values()].map((p) => p.stick)], { y: 60, opacity: 0, duration: 0.3, ease: "power3.in" }, "<");
+      tl.to(headline, { clipPath: "inset(-20% 0% -20% 100%)", duration: 0.3, ease: "power3.in" }, "<");
+      [50, 70, 60].forEach((value, i) => {
+        tl.to(pins.get(value).head, { ...TREE[value], duration: 0.8, ease: "power2.inOut" }, `>${i === 0 ? 0 : -0.55}`);
+      });
+      const edges = [
+        { from: 50, to: 70, label: "mayor", dx: 40, dy: -24, anchor: "start" },
+        { from: 70, to: 60, label: "menor", dx: 40, dy: 12, anchor: "start" },
+      ];
+      const edgeLayer = svg("g", {}, stage);
+      stage.insertBefore(edgeLayer, stage.firstChild);
+      edges.forEach(({ from, to, label, dx, dy, anchor }) => {
+        const a = TREE[from];
+        const b = TREE[to];
+        const line = svg("line", { class: "edge", x1: a.x, y1: a.y, x2: b.x, y2: b.y }, edgeLayer);
+        const t = text(stage, label, { class: "t40 edge-label", x: (a.x + b.x) / 2 + dx, y: (a.y + b.y) / 2 + dy, "text-anchor": anchor });
+        tl.from(line, { drawSVG: 0, duration: 0.45, ease: "power2.out" }, "-=0.2");
+        writeIn(tl, t, "<0.2", 0.4);
+      });
+      const caption = block(root, "Las preguntas forman un árbol", { x: 160, y: 96, className: "t96" });
+      writeIn(tl, caption, "<0.1", 0.7);
+      tl.addLabel("arbol");
+    }
+  })();
+</script>

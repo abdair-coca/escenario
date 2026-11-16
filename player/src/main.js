@@ -29,7 +29,7 @@ async function boot() {
   document.documentElement.lang = presentation.lang;
   if (presentation.themeUrl) await linkStylesheet(presentation.themeUrl);
   const scenes = await loadScenes(presentation.entries);
-  await document.fonts.ready;
+  await loadThemeFonts();
 
   const stage = createStage(document.getElementById("stage"));
   const hud = createHud(document.getElementById("hud"));
@@ -116,6 +116,17 @@ async function loadScenes(entries) {
       loaded: loaded[index],
     };
   });
+}
+
+// Fonts used only inside shadow roots load late; scenes measure text while building, so load
+// every declared face first.
+async function loadThemeFonts() {
+  const faces = [...document.fonts].filter((face) => face.status === "unloaded");
+  const results = await Promise.allSettled(faces.map((face) => face.load()));
+  results.forEach((result, index) => {
+    if (result.status === "rejected") errors.report(`Font failed to load: ${faces[index].family}`);
+  });
+  await document.fonts.ready;
 }
 
 function linkStylesheet(href) {

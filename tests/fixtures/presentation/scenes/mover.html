@@ -3,11 +3,13 @@
   <style>
     .box { position: absolute; left: 200px; top: 300px; width: 200px; height: 200px; background: var(--accent); }
     .label { position: absolute; left: 200px; top: 560px; margin: 0; font-size: 48px; }
+    .count { position: absolute; left: 1200px; top: 560px; margin: 0; font-size: 48px; }
     .tiny { position: absolute; left: 200px; top: 700px; margin: 0; font-size: 20px; opacity: 0; }
   </style>
   <div class="box"></div>
   <p class="label"></p>
   <p class="tiny">small print</p>
+  <p class="count">0</p>
 </template>
 <script>
   registerScene({
@@ -24,7 +26,15 @@
         .timeline({ paused: true })
         .from(box, { opacity: 0, duration: 0.3, ease: "expo.out" })
         .addLabel("start")
-        .to(box, { x: props.distance, duration: 0.5, ease: "expo.out" })
+        .to(box, {
+          x: props.distance,
+          duration: 0.5,
+          ease: "expo.out",
+          // Drawn from the tween, like a canvas would be: must also be right after a direct jump.
+          onUpdate() {
+            root.querySelector(".count").textContent = String(Math.round(gsap.getProperty(box, "x")));
+          },
+        })
         .addLabel("moved")
         .to(root.querySelector(".tiny"), { opacity: 1, duration: 0.2 })
         .addLabel("tiny");

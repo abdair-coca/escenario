@@ -1,0 +1,158 @@
+<!--
+  node-anatomy — a node drawn as a box [izq | valor | der] beside its Python class.
+  Each compartment appears with the line of code that creates it; then a second node is linked.
+-->
+<template>
+  <style>
+    .box rect { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .box .divider { stroke: var(--ink); stroke-width: 4; }
+    .box .slot-on { fill: none; stroke: var(--accent-3); stroke-width: 8; }
+    .none { font-family: var(--font-code); font-size: 40px; fill: var(--accent-3); }
+    .part { fill: var(--ink); }
+    .leader { fill: none; stroke: var(--accent-3); stroke-width: 4; stroke-linecap: round; }
+    .leader-dot { fill: var(--accent-3); }
+    .link { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+    .link-head { fill: var(--ink); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/python-code.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const { pythonCode } = window;
+    const BIG = { x: 140, y: 520, height: 180, parts: [180, 240, 180] };
+    const SMALL = { x: 500, y: 840, height: 108, parts: [124, 144, 124] };
+    const CODE = [
+      "class Nodo:",
+      "    def __init__(self, valor):",
+      "        self.valor = valor",
+      "        self.izq = None",
+      "        self.der = None",
+      "",
+      "raiz = Nodo(50)",
+      "raiz.der = Nodo(70)",
+    ];
+
+    registerScene({
+      id: "node-anatomy",
+      props: {
+        value: 50, // value of the big node
+        linked: 70, // value of the node linked on the right
+      },
+      steps: ["valor", "izq", "der", "enlazar"],
+      build(root, props, gsap) {
+        addStyles(root);
+        addStyles(root, pythonCode.CSS);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        const code = pythonCode.render(root, CODE, { x: 960, y: 300, lineHeight: 64 });
+        const big = drawBox(stage, BIG, props.value, "t96", "node-big");
+        const leaders = svg("g", {}, stage);
+
+        const headline = block(root, "Un nodo por dentro", { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.6);
+
+        // valor
+        tl.from(big.outline, { drawSVG: 0, duration: 0.7, ease: "power2.inOut" }, 0.2);
+        tl.from(big.dividers, { scaleY: 0, transformOrigin: "50% 0%", duration: 0.4, ease: "expo.out", stagger: 0.08 }, 0.6);
+        tl.from(big.value, { y: -60, opacity: 0, duration: 0.6, ease: "expo.out" }, 0.75);
+        const parts = partLabels(stage, BIG);
+        writeIn(tl, parts.valor, 0.9, 0.35);
+        pythonCode.typeIn(tl, code.lineEls.slice(0, 3), 0.5);
+        let bar = code.bar([2]);
+        pythonCode.swipeIn(tl, bar, ">0.05");
+        let leader = drawLeader(leaders, code.spanBox(2, 8, 18), [[800, 430], [520, 420], [440, 512]]);
+        tl.from(leader.path, { drawSVG: 0, duration: 0.5, ease: "power2.out" }, "<0.1");
+        tl.from(leader.dots, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, "<");
+        tl.addLabel("valor");
+
+        // izq and der: compartment, None, label, code line and its leader
+        const steps = [
+          { name: "izq", line: 3, part: 0, route: [[900, 430], [330, 400], [230, 512]] },
+          { name: "der", line: 4, part: 2, route: [[900, 620], [800, 612], [748, 612]] },
+        ];
+        steps.forEach(({ name, line, part, route }) => {
+          tl.to(leader.g, { opacity: 0, duration: 0.2, ease: "power3.in" });
+          pythonCode.swipeOut(tl, bar, "<");
+          pythonCode.typeIn(tl, [code.lineEls[line]], tl.duration() - 0.05);
+          bar = code.bar([line]);
+          pythonCode.swipeIn(tl, bar, ">0.05");
+          tl.from(big.highlights[part], { drawSVG: 0, duration: 0.5, ease: "power2.out" }, "<");
+          tl.from(big.nones[part], { scale: 0.4, opacity: 0, transformOrigin: "50% 50%", duration: 0.45, ease: "expo.out" }, "<0.15");
+          writeIn(tl, parts[name], "<0.1", 0.35);
+          leader = drawLeader(leaders, code.spanBox(line, 8, 16), route);
+          tl.from(leader.path, { drawSVG: 0, duration: 0.5, ease: "power2.out" }, "<0.1");
+        tl.from(leader.dots, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, "<");
+          tl.addLabel(name);
+        });
+
+        link(tl, { stage, code, big, leader, bar, props });
+        return tl;
+      },
+    });
+
+    function drawBox(stage, spec, value, valueClass, className) {
+      const g = svg("g", { class: `box ${className}` }, stage);
+      const width = spec.parts.reduce((a, b) => a + b, 0);
+      const outline = svg("rect", { x: spec.x, y: spec.y, width, height: spec.height, rx: 14 }, g);
+      const xs = [spec.x, spec.x + spec.parts[0], spec.x + spec.parts[0] + spec.parts[1]];
+      const dividers = [xs[1], xs[2]].map((x) =>
+        svg("line", { class: "divider", x1: x, y1: spec.y, x2: x, y2: spec.y + spec.height }, g),
+      );
+      const centerY = spec.y + spec.height / 2;
+      const centers = xs.map((x, i) => x + spec.parts[i] / 2);
+      const valueText = text(g, String(value), { class: `${valueClass} mid num`, x: centers[1], y: centerY + 4 });
+      const highlights = [0, 2].reduce((acc, i) => {
+        acc[i] = svg("rect", { class: "slot-on", x: xs[i] + 8, y: spec.y + 8, width: spec.parts[i] - 16, height: spec.height - 16, rx: 8 }, g);
+        return acc;
+      }, {});
+      const nones = [0, 2].reduce((acc, i) => {
+        acc[i] = text(g, "None", { class: "none mid", x: centers[i], y: centerY + 2 });
+        return acc;
+      }, {});
+      return { g, outline, dividers, value: valueText, highlights, nones, centers, centerY, width };
+    }
+
+    function partLabels(stage, spec) {
+      const xs = [spec.x + spec.parts[0] / 2, spec.x + spec.parts[0] + spec.parts[1] / 2, spec.x + spec.parts[0] + spec.parts[1] + spec.parts[2] / 2];
+      const y = spec.y + spec.height + 64;
+      return {
+        izq: text(stage, "izq", { class: "t40 mid part", x: xs[0], y }),
+        valor: text(stage, "valor", { class: "t40 mid part", x: xs[1], y }),
+        der: text(stage, "der", { class: "t40 mid part", x: xs[2], y }),
+      };
+    }
+
+    // A guide line from a code span (its left end) to a part of the drawing.
+    function drawLeader(layer, span, [c1, c2, end]) {
+      const start = [span.x - 12, span.y + span.height / 2];
+      const g = svg("g", {}, layer);
+      svg("path", { class: "leader", d: `M${start} C${c1} ${c2} ${end}` }, g);
+      const dots = [start, end].map(([cx, cy]) => svg("circle", { class: "leader-dot", cx, cy, r: 7 }, g));
+      return { g, path: g.querySelector("path"), dots };
+    }
+
+    function link(tl, { stage, code, big, leader, bar, props }) {
+      tl.to(leader.g, { opacity: 0, duration: 0.2, ease: "power3.in" });
+      pythonCode.swipeOut(tl, bar, "<");
+      pythonCode.typeIn(tl, code.lineEls.slice(5), tl.duration() - 0.05);
+      pythonCode.swipeIn(tl, code.bar([6, 7]), ">0.05");
+      const small = drawBox(stage, SMALL, props.linked, "t56", `node-${props.linked}`);
+      gsap.set([small.highlights[0], small.highlights[2]], { opacity: 0 });
+      tl.from(small.g, { y: -80, opacity: 0, duration: 0.6, ease: "expo.out" }, "<0.2");
+      tl.to(big.nones[2], { scale: 0.3, opacity: 0, transformOrigin: "50% 50%", duration: 0.25, ease: "power3.in" }, "<0.2");
+      const from = [big.centers[2], big.centerY];
+      const to = [800, SMALL.y - 8];
+      const arrow = svg("g", {}, stage);
+      const dot = svg("circle", { class: "link-head", cx: from[0], cy: from[1], r: 12 }, arrow);
+      const path = svg("path", { class: "link", d: `M${from} H${to[0]} V${to[1] - 18}` }, arrow);
+      const head = svg("path", { class: "link-head", d: `M${to[0] - 16},${to[1] - 24} L${to[0] + 16},${to[1] - 24} L${to[0]},${to[1]} Z` }, arrow);
+      tl.from(dot, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, ">-0.05");
+      tl.from(path, { drawSVG: 0, duration: 0.55, ease: "power2.inOut" }, "<0.1");
+      tl.from(head, { scale: 0, transformOrigin: "50% 100%", duration: 0.3, ease: "expo.out" }, ">-0.1");
+      tl.addLabel("enlazar");
+    }
+  })();
+</script>

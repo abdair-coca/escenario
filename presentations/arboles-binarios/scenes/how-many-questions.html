@@ -1,0 +1,180 @@
+<!--
+  how-many-questions — a bar of a million numbers halves again and again (about 20 comparisons),
+  set against checking one by one; a caveat about sorted insertion; the closing sentence.
+-->
+<template>
+  <style>
+    .bar { fill: var(--ink); }
+    .row { fill: var(--accent); }
+    .on-bar { fill: var(--paper); }
+    .row-label { fill: var(--muted); }
+    .edge { stroke: var(--ink); stroke-width: 5; stroke-linecap: round; }
+    .node circle { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .node.found circle { fill: var(--accent-2); }
+    .marker { position: absolute; background: var(--accent-2); border-radius: 6px; }
+    .closing { position: absolute; }
+    .counter .num { color: var(--accent); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const BAR = { x: 160, y: 300, width: 1600, height: 80 };
+    const ROWS = 10;
+    const ROW = { top: 412, gap: 48, height: 24 };
+    const CHAIN = [
+      { value: 10, x: 1300, y: 540 },
+      { value: 20, x: 1420, y: 650 },
+      { value: 30, x: 1540, y: 760 },
+      { value: 40, x: 1660, y: 870 },
+    ];
+    const ECHO = [
+      { value: 50, x: 1600, y: 380 },
+      { value: 70, x: 1720, y: 560 },
+      { value: 60, x: 1640, y: 740, found: true },
+    ];
+
+    registerScene({
+      id: "how-many-questions",
+      props: {
+        total: 1000000, // numbers in the big case
+        comparisons: 20, // halvings needed (about log2 of total)
+      },
+      steps: ["millon", "mitades", "lista", "ojo", "idea"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        const fmt = (n) => n.toLocaleString("es-ES");
+
+        const headline = block(root, "¿Y con un millón de números?", { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.7);
+        const bar = svg("rect", { class: "bar", ...rect(BAR) }, stage);
+        const barLabel = text(stage, `${fmt(props.total)} números`, { class: "t40 on-bar num", x: BAR.x + 32, y: BAR.y + 54 });
+        tl.from(bar, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.9, ease: "expo.out" }, 0.3);
+        writeIn(tl, barLabel, 0.7, 0.5);
+        tl.addLabel("millon");
+
+        const halving = halve(tl, { stage, root, props, fmt });
+        tl.addLabel("mitades");
+
+        const list = block(root, `Lista, uno por uno: hasta ${fmt(props.total)} comparaciones`, { x: 160, y: 228, className: "t40" });
+        writeIn(tl, list, ">", 0.7);
+        tl.addLabel("lista");
+
+        const chain = drawChain(tl, { stage, root });
+        tl.addLabel("ojo");
+
+        close(tl, { stage, root, leaving: [headline, bar, barLabel, list, ...halving, ...chain] });
+        tl.addLabel("idea");
+        return tl;
+      },
+    });
+
+    function rect({ x, y, width, height }) {
+      return { x, y, width, height };
+    }
+
+    // Rows under the bar, each half the one above; the counter ticks with them.
+    function halve(tl, { stage, root, props, fmt }) {
+      const parts = [];
+      const start = tl.duration();
+      for (let k = 1; k <= ROWS; k += 1) {
+        const width = Math.max(BAR.width / 2 ** k, 2);
+        const y = ROW.top + (k - 1) * ROW.gap;
+        const row = svg("rect", { class: "row", x: BAR.x, y, width, height: ROW.height }, stage);
+        parts.push(row);
+        tl.from(row, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.45, ease: "expo.out" }, start + (k - 1) * 0.07);
+        if (k <= 3) {
+          const label = text(stage, fmt(props.total / 2 ** k), { class: "t40 row-label num", x: BAR.x + width + 20, y: y + ROW.height / 2 + 14 });
+          parts.push(label);
+          tl.from(label, { opacity: 0, x: -20, duration: 0.4, ease: "expo.out" }, start + (k - 1) * 0.07 + 0.15);
+        }
+      }
+      const counter = block(root, "", { x: BAR.x, y: 884, className: "t72 counter" });
+      counter.innerHTML = 'Árbol: unas <span class="num">1</span> comparaciones';
+      const number = counter.querySelector(".num");
+      writeIn(tl, counter, start + 0.1, 0.5);
+      tl.fromTo(
+        number,
+        { innerText: 1 },
+        { innerText: props.comparisons, snap: { innerText: 1 }, duration: 0.9, ease: "power2.out" },
+        start + 0.2,
+      );
+      parts.push(counter);
+      return parts;
+    }
+
+    // Sorted inserts make every node a right child: a diagonal chain, i.e. a list.
+    function drawChain(tl, { stage, root }) {
+      const g = svg("g", {}, stage);
+      const edges = svg("g", {}, g);
+      const at = tl.duration();
+      CHAIN.forEach((node, i) => {
+        if (i > 0) {
+          const prev = CHAIN[i - 1];
+          const edge = svg("line", { class: "edge", x1: prev.x, y1: prev.y, x2: node.x, y2: node.y }, edges);
+          tl.from(edge, { drawSVG: 0, duration: 0.3, ease: "power2.out" }, at + i * 0.25);
+        }
+        const n = drawNode(g, node);
+        tl.from(n, { scale: 0, transformOrigin: "50% 50%", duration: 0.45, ease: "expo.out" }, at + i * 0.25 + 0.1);
+      });
+      const label = block(root, "", { x: 680, y: 480, className: "t40", width: 480 });
+      label.innerHTML = "Si insertas en orden,<br>se vuelve una lista";
+      label.style.textAlign = "right";
+      writeIn(tl, label, at + 0.8, 0.6);
+      return [g, label];
+    }
+
+    function drawNode(layer, { value, x, y, found }) {
+      const g = svg("g", { class: `node${found ? " found" : ""}` }, layer);
+      gsap.set(g, { x, y });
+      svg("circle", { r: 46 }, g);
+      text(g, String(value), { class: "t40 mid num", y: 2 }).style.fontWeight = 700;
+      return g;
+    }
+
+    // Everything leaves fast; the idea is written and the secret-number path comes back.
+    function close(tl, { stage, root, leaving }) {
+      tl.to(leaving, { opacity: 0, duration: 0.3, ease: "power3.in" });
+      const lines = ["Menores a la izquierda,", "mayores a la derecha:", "buscar es bajar por un solo camino."];
+      const at = tl.duration();
+      lines.forEach((line, i) => {
+        const el = block(root, line, { x: 160, y: 330 + i * 110, className: "t72 closing" });
+        writeIn(tl, el, at + i * 0.3, 0.6);
+      });
+      const marker = document.createElement("div");
+      marker.className = "marker";
+      root.prepend(marker);
+      const last = root.querySelectorAll(".closing")[2];
+      const range = document.createRange();
+      const node = last.firstChild;
+      const from = lines[2].indexOf("un solo camino");
+      range.setStart(node, from);
+      range.setEnd(node, lines[2].length - 1);
+      const box = range.getBoundingClientRect();
+      const rootBox = root.getBoundingClientRect();
+      const scale = rootBox.width / 1920;
+      Object.assign(marker.style, {
+        left: `${(box.left - rootBox.left) / scale - 10}px`,
+        top: `${(box.top - rootBox.top) / scale + 8}px`,
+        width: `${box.width / scale + 20}px`,
+        height: `${box.height / scale - 8}px`,
+      });
+      tl.fromTo(marker, { scaleX: 0, transformOrigin: "0% 50%" }, { scaleX: 1, duration: 0.5, ease: "expo.out" }, at + 1.1);
+
+      const echo = svg("g", {}, stage);
+      ECHO.slice(1).forEach((node, i) => {
+        const prev = ECHO[i];
+        const edge = svg("line", { class: "edge", x1: prev.x, y1: prev.y, x2: node.x, y2: node.y }, echo);
+        tl.from(edge, { drawSVG: 0, duration: 0.35, ease: "power2.out" }, at + 0.5 + i * 0.3);
+      });
+      ECHO.forEach((node, i) => {
+        const n = drawNode(echo, node);
+        tl.from(n, { scale: 0, transformOrigin: "50% 50%", duration: 0.45, ease: "expo.out" }, at + 0.4 + i * 0.3);
+      });
+    }
+  })();
+</script>

@@ -95,6 +95,8 @@ test("the URL restores a step directly, with that scene's own props", async () =
   const { page } = await openPlayer(browser, server.origin, { slug: SLUG, scene: 1, step: 1, mode: "live" });
   await settle(page);
   assert.equal(await boxX(page), 800);
+  const count = await page.evaluate(() => document.querySelector(".scene-host").shadowRoot.querySelector(".count").textContent);
+  assert.equal(count, "800", "content drawn in onUpdate must follow a direct jump");
   await page.close();
 });
 

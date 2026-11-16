@@ -16,10 +16,27 @@ const GSAP_FILES = [
   "TextPlugin.min.js",
 ];
 
-const COPIES = GSAP_FILES.map((file) => ({
-  from: join("node_modules", "gsap", "dist", file),
-  to: join("player", "vendor", "gsap", file),
-}));
+const FONT_FILES = {
+  "bricolage-grotesque": ["latin-500-normal.woff2", "latin-700-normal.woff2"],
+  "jetbrains-mono": ["latin-400-normal.woff2", "latin-700-normal.woff2"],
+};
+
+const COPIES = [
+  ...GSAP_FILES.map((file) => ({
+    from: join("node_modules", "gsap", "dist", file),
+    to: join("player", "vendor", "gsap", file),
+  })),
+  ...Object.entries(FONT_FILES).flatMap(([family, files]) => [
+    ...files.map((file) => ({
+      from: join("node_modules", "@fontsource", family, "files", `${family}-${file}`),
+      to: join("player", "vendor", "fonts", `${family}-${file}`),
+    })),
+    {
+      from: join("node_modules", "@fontsource", family, "LICENSE"),
+      to: join("player", "vendor", "fonts", `${family}-LICENSE.txt`),
+    },
+  ]),
+];
 
 for (const { from, to } of COPIES) {
   await mkdir(dirname(join(ROOT, to)), { recursive: true });

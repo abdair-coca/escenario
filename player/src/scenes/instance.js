@@ -54,7 +54,7 @@ function wrapTimeline({ definition, steps, host, root, timeline }) {
   timeline.pause();
   const { times, errors } = readStepTimes(timeline.labels, steps);
   if (errors.length) throw new Error(errors.join("; "));
-  timeline.seek(0, true);
+  timeline.seek(0, false);
 
   return {
     id: definition.id,
@@ -62,18 +62,18 @@ function wrapTimeline({ definition, steps, host, root, timeline }) {
     host,
     root,
     showStart() {
-      timeline.seek(0, true);
+      timeline.seek(0, false);
     },
     rest(step) {
-      timeline.seek(times[step], true);
+      timeline.seek(times[step], false);
     },
     // Plays the animation that leads into `step`, from the rest state of the step before it.
     playStep(step) {
       const from = step === 0 ? 0 : times[step - 1];
       const to = times[step];
-      timeline.seek(from, true);
+      timeline.seek(from, false);
       if (to <= from) {
-        timeline.seek(to, true);
+        timeline.seek(to, false);
         return settledMotion();
       }
       return motionFromTween(timeline.tweenFromTo(from, to, { ease: "none" }));

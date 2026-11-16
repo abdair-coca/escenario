@@ -1,0 +1,39 @@
+/* «Cuaderno de ingeniería»: warm paper, ink strokes, a highlighter on the code. */
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("../../player/vendor/fonts/bricolage-grotesque-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-display: block;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("../../player/vendor/fonts/bricolage-grotesque-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../player/vendor/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../player/vendor/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
+}
+
+:root {
+  --paper: #f3eee3;
+  --ink: #1e1c19;
+  --muted: #a49d90;
+  --accent: #e0492a;
+  --accent-2: #f2b33d;
+  --accent-3: #2f5d9e;
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, monospace;
+  --wipe: var(--ink);
+}

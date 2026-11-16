@@ -5,7 +5,8 @@
 import { CANVAS } from "../paths.js";
 import { motionFromTween, settledMotion } from "../shared/motion.js";
 
-const HANDOFF = 0.6;
+// Progress at which the incoming scene starts its entrance; `handoff` in the options overrides it.
+const HANDOFF = { push: 0.6, zoom: 0.6, reveal: 0.15, wipe: 0.6 };
 
 const TRANSITIONS = { cut, push, zoom, reveal, wipe };
 
@@ -26,17 +27,17 @@ function cut(_options, { from }) {
 const PUSH_VECTORS = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] };
 
 // Camera pan: the new scene sits next to the old one and the camera slides over.
-function push({ direction = "left", duration = 1 }, { from, to }) {
+function push({ direction = "left", duration = 1, handoff = HANDOFF.push }, { from, to }) {
   const [dx, dy] = PUSH_VECTORS[direction] ?? PUSH_VECTORS.left;
   const offset = { x: -dx * CANVAS.width, y: -dy * CANVAS.height };
   const tl = gsap.timeline({ onComplete: () => finishSwap(from, to) });
   tl.fromTo(to.host, { x: offset.x, y: offset.y }, { x: 0, y: 0, duration, ease: "power2.inOut" }, 0);
   tl.to(from.host, { x: -offset.x, y: -offset.y, duration, ease: "power2.inOut" }, 0);
-  return motionFromTween(tl, HANDOFF);
+  return motionFromTween(tl, handoff);
 }
 
 // The camera dives into `target` (a selector inside the outgoing scene) and the new scene is behind it.
-function zoom({ target, duration = 0.9 }, { from, to }) {
+function zoom({ target, duration = 0.9, handoff = HANDOFF.zoom }, { from, to }) {
   const box = targetBox(from, target);
   const scale = Math.min(CANVAS.width / box.width, CANVAS.height / box.height) * 1.2;
   from.host.style.zIndex = "1";
@@ -45,11 +46,11 @@ function zoom({ target, duration = 0.9 }, { from, to }) {
   tl.to(from.host, { scale, duration, ease: "power2.inOut" }, 0);
   tl.to(from.host, { opacity: 0, duration: duration * 0.3, ease: "power3.in" }, duration * 0.7);
   tl.fromTo(to.host, { scale: 0.94 }, { scale: 1, duration: duration * 0.5, ease: "expo.out" }, duration * 0.5);
-  return motionFromTween(tl, HANDOFF);
+  return motionFromTween(tl, handoff);
 }
 
 // The new scene grows out of `target` in the outgoing scene, as a circle.
-function reveal({ target, duration = 0.9 }, { from, to }) {
+function reveal({ target, duration = 0.9, handoff = HANDOFF.reveal }, { from, to }) {
   const box = targetBox(from, target);
   const radius = Math.hypot(CANVAS.width, CANVAS.height);
   const start = Math.max(box.width, box.height) / 2;
@@ -60,11 +61,11 @@ function reveal({ target, duration = 0.9 }, { from, to }) {
     { clipPath: `circle(${start}px at ${box.cx}px ${box.cy}px)` },
     { clipPath: `circle(${radius}px at ${box.cx}px ${box.cy}px)`, duration, ease: "power3.inOut" },
   );
-  return motionFromTween(tl, HANDOFF);
+  return motionFromTween(tl, handoff);
 }
 
 // A solid panel crosses the stage: it covers the old scene fast and uncovers the new one slowly.
-function wipe({ color = "var(--wipe, #111)", direction = "left", duration = 1 }, { from, to, stage }) {
+function wipe({ color = "var(--wipe, #111)", direction = "left", duration = 1, handoff = HANDOFF.wipe }, { from, to, stage }) {
   const [dx] = PUSH_VECTORS[direction] ?? PUSH_VECTORS.left;
   const panel = document.createElement("div");
   panel.className = "transition-panel";
@@ -84,7 +85,7 @@ function wipe({ color = "var(--wipe, #111)", direction = "left", duration = 1 },
     from.host.style.visibility = "hidden";
   });
   tl.to(panel, { xPercent: dx * 100, duration: duration - cover, ease: "expo.out" });
-  return motionFromTween(tl, HANDOFF);
+  return motionFromTween(tl, handoff);
 }
 
 function finishSwap(from, to) {
