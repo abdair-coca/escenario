@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { nextPosition, previousPosition, clampPosition } from "../player/src/navigation/cursor.js";
 import { parseUrlState, formatUrlState } from "../player/src/shared/url-state.js";
-import { validateDefinition, mergeProps, readStepTimes, resolveSteps } from "../player/src/scenes/definition.js";
+import { validateDefinition, mergeProps, readStepTimes, resolveSteps, findCrossedHolds } from "../player/src/scenes/definition.js";
 import { normalizePresentation, resolveSceneUrl } from "../player/src/shared/presentation.js";
 import { presenterSnapshot } from "../player/src/shared/snapshot.js";
 import { formatElapsed } from "../player/src/presenter/timer.js";
@@ -59,6 +59,13 @@ test("timeline labels become step times in order", () => {
   assert.deepEqual(readStepTimes({ a: 0.5, b: 1.5 }, ["a", "b"]), { times: [0.5, 1.5], errors: [] });
   assert.equal(readStepTimes({ a: 0.5 }, ["a", "b"]).errors.length, 1);
   assert.equal(readStepTimes({ a: 2, b: 1 }, ["a", "b"]).errors.length, 1);
+});
+
+test("an animation that runs across a hold is reported", () => {
+  const times = [1, 2];
+  const steps = ["a", "b"];
+  assert.deepEqual(findCrossedHolds([{ start: 0, end: 1 }, { start: 1, end: 2 }], times, steps), []);
+  assert.deepEqual(findCrossedHolds([{ start: 1.5, end: 2.5 }], times, steps), ["b"]);
 });
 
 test("scene references resolve to the library or to the presentation folder", () => {

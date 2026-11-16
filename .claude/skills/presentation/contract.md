@@ -57,6 +57,9 @@ The template is mounted in a shadow root, so its styles only touch this scene.
 
 ## Pitfalls found in review
 
+- Start each step's tweens at `tl.duration()` (or after its label), not at `">"`: `">"` means the end of
+  the last tween *added*, which may finish before the previous hold. The player rejects a scene whose
+  animation runs across a hold (`an animation runs across the hold of step …`).
 - DrawSVG rewrites `stroke-dasharray`: animate dashed strokes with opacity or scale, never `drawSVG`.
 - In SVG, `transformOrigin` is measured from the element's bounding box, which changes as content is added.
   For layout transforms use `svgOrigin` (user-space coordinates).

@@ -7,10 +7,6 @@
   <style>
     .hull { fill: none; stroke: var(--ink); stroke-width: 4; }
     .hull-label-bg { fill: var(--paper); }
-    .order { fill: var(--ink); }
-    .order-focus { fill: var(--accent); }
-    .drop { stroke: var(--muted); stroke-width: 4; stroke-linecap: round; }
-    .ring { fill: none; stroke: var(--accent); stroke-width: 9; }
   </style>
 </template>
 <script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
@@ -21,7 +17,7 @@
     const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
     const { bstTree } = window;
     const { CENTERED, LAYOUT } = bstTree;
-    const toCanvas = ({ x, y }) => ({ x: x * CENTERED.scale + CENTERED.x, y: y * CENTERED.scale + CENTERED.y });
+    const toCanvas = bstTree.toCentered;
     const RADIUS = LAYOUT.radius * CENTERED.scale;
 
     registerScene({
@@ -105,25 +101,15 @@
     }
 
     // The outlines leave; the focus node's children spell the rule in order under the tree.
+    // bst-walk draws the same line with drawOrder at its start, so the cut between them is seamless.
     function repeatAtNode(tl, { stage, tree, focus, outlines }) {
       tl.to(outlines.map((o) => o.g), { opacity: 0, duration: 0.3, ease: "power3.in" });
-      const node = tree.nodes.get(focus);
-      const ring = svg("circle", { class: "ring", r: LAYOUT.radius }, node.g);
-      tl.from(ring, { drawSVG: 0, duration: 0.45, ease: "power2.out" }, ">");
-      const kids = [node.model.left, node.model, node.model.right].filter(Boolean);
-      const y = 960;
-      const drops = svg("g", {}, stage);
-      kids.forEach((kid, i) => {
-        const at = toCanvas(tree.nodes.get(kid.value));
-        const line = svg("line", { class: "drop", x1: at.x, y1: at.y + RADIUS + 10, x2: at.x, y2: y - 52 }, drops);
-        const t = text(stage, String(kid.value), { class: `t56 mid num ${kid.value === focus ? "order-focus" : "order"}`, x: at.x, y });
+      const order = bstTree.drawOrder(stage, tree, focus);
+      tl.from(order.ring, { drawSVG: 0, duration: 0.45, ease: "power2.out" }, ">");
+      order.items.forEach(({ line, number, sign }, i) => {
         tl.from(line, { drawSVG: 0, duration: 0.35, ease: "power2.out" }, `>-${i === 0 ? 0.1 : 0.25}`);
-        tl.from(t, { y: -40, opacity: 0, duration: 0.45, ease: "expo.out" }, "<0.15");
-        if (i < kids.length - 1) {
-          const next = toCanvas(tree.nodes.get(kids[i + 1].value));
-          const sign = text(stage, "<", { class: "t56 mid order", x: (at.x + next.x) / 2, y });
-          tl.from(sign, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, "<0.2");
-        }
+        tl.from(number, { y: -40, opacity: 0, duration: 0.45, ease: "expo.out" }, "<0.15");
+        if (sign) tl.from(sign, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, "<0.2");
       });
     }
   })();

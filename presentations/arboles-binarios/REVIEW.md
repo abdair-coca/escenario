@@ -21,18 +21,18 @@ captures of zoom (1→2), reveal (2→3), the two cuts (3→4, 4→5) and push (
 | 5 Buscar | Token `¿60?` covered the found node's ring | token stayed beside the node | token merges into the node |
 | 6 Millón | Chain edges drawn over the node numbers | edge appended after the previous node | edges in their own layer below nodes |
 | player | A content drawn from `onUpdate` would be wrong after a direct jump | seeks suppressed callbacks | seeks fire `onUpdate`; covered by a new test |
+| 6 Millón | Half of «Lista, uno por uno…» showed on step `mitades` | its tween started at `">"`, before the hold | starts at `tl.duration()`; the player now rejects any animation that crosses a hold (unit test + verified by reintroducing the bug) |
+| 6 Millón | 10 visible rows vs «unas 20» in the counter | rows past 10 are under 2 px | a last line «… tras 20 mitades: queda 1 número» (author's choice) |
+| 3→4 | At the cut the title and «20 < 30 < 40» vanished, the new title came 0.3 s later | bst-walk started empty | bst-walk takes `previousTitle` and `previousFocus`, starts with them on screen and removes them fast (author's choice); both scenes draw the line with the shared `bstTree.drawOrder`, and every headline is now the same 96 px block |
 
 ## Checked and fine
 
 - Every step reached by jumping directly (that is how the screenshots are taken) matches the summary.
-- Cut 4→5 is seamless; cut 3→4 only drops the «20 < 30 < 40» labels and the title, then the tree slides left.
+- Cuts 3→4 and 4→5 are seamless: the frame right after the key press matches the previous step.
 - No banned look: light paper, no glows/particles, no card rows; entrances are pen strokes, drops, typing,
   highlighter swipes, folding ruler segments and a camera push.
 - Code lines (40 px mono) end at x ≤ 1803, inside the safe area.
 
-## For the author to decide
+## Open
 
-- Scene 6 draws 10 halving rows (beyond that they are under 2 px); the counter says «unas 20». The narration
-  covers the rest; if it reads as a mismatch, add a «…» row or label the last row «20».
-- Scene 3 → 4: the title «La regla» disappears at the cut and «Insertar el 60» writes in 0.3 s later.
 - The demo has not been timed with real narration; the ~7 min estimate comes from the summary.

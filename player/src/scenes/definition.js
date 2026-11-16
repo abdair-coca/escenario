@@ -40,6 +40,14 @@ export function mergeProps(defaults = {}, overrides = {}) {
   return { props: { ...defaults, ...overrides }, unknownKeys };
 }
 
+// A tween that runs across a hold leaves its element half-way in that step's rest state
+// (part of the next step leaks into this one). `spans` are the timeline's direct children.
+export function findCrossedHolds(spans, times, steps, epsilon = 1e-6) {
+  return steps.filter((_, index) =>
+    spans.some(({ start, end }) => start < times[index] - epsilon && end > times[index] + epsilon),
+  );
+}
+
 // Each label is a hold point: the timeline state at that label is the rest state of the step.
 export function readStepTimes(labels, steps) {
   const errors = [];

@@ -95,6 +95,28 @@
     return { g, circle, label };
   }
 
+  const toCentered = ({ x, y }) => ({ x: x * CENTERED.scale + CENTERED.x, y: y * CENTERED.scale + CENTERED.y });
+
+  // Under the centred tree: the focus node and its children written in order ("20 < 30 < 40"),
+  // each number on a drop line from its node, and a ring on the focus node.
+  function drawOrder(layer, tree, focus, { y = 960 } = {}) {
+    const node = tree.nodes.get(focus);
+    const ring = svg("circle", { class: "order-ring", r: LAYOUT.radius }, node.g);
+    const kids = [node.model.left, node.model, node.model.right].filter(Boolean);
+    const radius = LAYOUT.radius * CENTERED.scale;
+    const items = kids.map((kid, i) => {
+      const at = toCentered(tree.nodes.get(kid.value));
+      const line = svg("line", { class: "order-drop", x1: at.x, y1: at.y + radius + 10, x2: at.x, y2: y - 52 }, layer);
+      const tone = kid.value === focus ? "order-focus" : "order";
+      const number = text(layer, String(kid.value), { class: `t56 mid num ${tone}`, x: at.x, y });
+      const next = kids[i + 1] && toCentered(tree.nodes.get(kids[i + 1].value));
+      const sign = next ? text(layer, "<", { class: "t56 mid order", x: (at.x + next.x) / 2, y }) : null;
+      return { line, number, sign };
+    });
+    const parts = [ring, ...items.flatMap((item) => [item.line, item.number, item.sign].filter(Boolean))];
+    return { ring, items, parts };
+  }
+
   // Subtree values under `value` (including it).
   function subtree(tree, value) {
     const out = [];
@@ -113,7 +135,11 @@
     .edge--slot { stroke: var(--muted); stroke-dasharray: 2 14; }
     .node__circle { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
     .slot { fill: none; stroke: var(--muted); stroke-width: 4; stroke-dasharray: 14 12; }
+    .order-ring { fill: none; stroke: var(--accent); stroke-width: 9; }
+    .order-drop { stroke: var(--muted); stroke-width: 4; stroke-linecap: round; }
+    .order { fill: var(--ink); }
+    .order-focus { fill: var(--accent); }
   `;
 
-  window.bstTree = { LAYOUT, CENTERED, build, walk, position, draw, subtree, findSpot, CSS };
+  window.bstTree = { LAYOUT, CENTERED, toCentered, build, walk, position, draw, drawOrder, subtree, findSpot, CSS };
 })();

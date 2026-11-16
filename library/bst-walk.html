@@ -6,7 +6,6 @@
 -->
 <template>
   <style>
-    .title { font-size: 72px; font-weight: 700; }
     .caption__compare { fill: var(--accent); }
     .caption__say { font-size: 40px; font-weight: 500; fill: var(--ink); }
     .token rect { fill: var(--accent); }
@@ -23,10 +22,11 @@
 <script src="/library/shared/python-code.js"></script>
 <script>
   (function () {
-    const { svg, text, canvas, addStyles } = window.sceneKit;
+    const { svg, text, canvas, addStyles, block, writeIn } = window.sceneKit;
     const { bstTree, pythonCode } = window;
     const CODE_AT = { x: 800, y: 300 };
     const TOKEN_OFFSET = { x: 82, y: -64 };
+    const HEADLINE = { x: 160, y: 96, className: "t96" };
 
     function stepsFor(props) {
       const { compared, end } = bstTree.walk(props.values, props.target);
@@ -45,7 +45,7 @@
     }
 
     function caption(layer, compare, say) {
-      const t = text(layer, "", { x: 110, y: 250, class: "t56 caption" });
+      const t = text(layer, "", { x: 160, y: 262, class: "t56 caption" });
       svg("tspan", { class: "caption__compare" }, t).textContent = compare;
       svg("tspan", { class: "caption__say", dx: 24 }, t).textContent = say;
       return t;
@@ -66,7 +66,8 @@
         code: [], // Python lines shown on the right
         lines: { left: [], right: [], empty: [], found: [] }, // code lines to highlight at each moment
         enter: "slide", // "slide": tree moves from the centred layout; "swap": previous code is replaced
-        previousTitle: "", // swap: title on screen when the scene starts
+        previousTitle: "", // headline of the previous scene, shown at the start and removed (seamless cut)
+        previousFocus: null, // after bst-rule: node whose ordered children were written under the tree
         previousCode: [], // swap: code on screen when the scene starts
         previousLines: [], // swap: highlighted lines when the scene starts
         fresh: null, // a node drawn as just inserted (mustard) when the scene starts
@@ -98,25 +99,28 @@
       },
     });
 
+    // The scene starts showing what the previous one ended with (title, ordered line, code), so a cut
+    // into it does not jump; those leave fast while this scene's own title is written.
     function enter(tl, { root, stage, treeGroup, tree, props }) {
-      const title = text(stage, props.title, { x: 110, y: 150, class: "title" });
       if (props.fresh !== null) tree.nodes.get(props.fresh)?.circle.style.setProperty("fill", "var(--accent-2)");
+      const leaving = [];
+      if (props.previousTitle) leaving.push(block(root, props.previousTitle, HEADLINE));
+      if (props.previousFocus !== null) leaving.push(...bstTree.drawOrder(stage, tree, props.previousFocus).parts);
+      if (leaving.length) tl.to(leaving, { opacity: 0, duration: 0.3, ease: "power3.in" }, 0);
+      writeIn(tl, block(root, props.title, HEADLINE), 0.3, 0.6);
       if (props.enter === "slide") {
         gsap.set(treeGroup, { ...bstTree.CENTERED, svgOrigin: "0 0" });
         tl.to(treeGroup, { x: 0, y: 0, scale: 1, duration: 1, ease: "power2.inOut" }, 0);
-        tl.from(title, { x: -60, opacity: 0, duration: 0.6, ease: "expo.out" }, 0.3);
         return;
       }
-      const oldTitle = text(stage, props.previousTitle, { x: 110, y: 150, class: "title" });
       const old = pythonCode.render(root, props.previousCode, CODE_AT);
       const oldBar = old.bar(props.previousLines);
       gsap.set(oldBar, { scaleX: 1 });
-      tl.to([oldTitle, ...old.lineEls], { y: -40, opacity: 0, duration: 0.25, ease: "power3.in", stagger: 0.04 }, 0);
+      tl.to(old.lineEls, { y: -40, opacity: 0, duration: 0.25, ease: "power3.in", stagger: 0.04 }, 0);
       pythonCode.swipeOut(tl, oldBar, 0);
       if (props.fresh !== null) {
         tl.to(tree.nodes.get(props.fresh).circle, { fill: "var(--paper)", duration: 0.4, ease: "power2.out" }, 0.2);
       }
-      tl.from(title, { x: -60, opacity: 0, duration: 0.6, ease: "expo.out" }, 0.35);
     }
 
     function typeCode(tl, code, props) {

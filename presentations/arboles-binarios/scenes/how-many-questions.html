@@ -23,7 +23,7 @@
     const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
     const BAR = { x: 160, y: 300, width: 1600, height: 80 };
     const ROWS = 10;
-    const ROW = { top: 412, gap: 48, height: 24 };
+    const ROW = { top: 412, gap: 42, height: 24 };
     const CHAIN = [
       { value: 10, x: 1300, y: 540 },
       { value: 20, x: 1420, y: 650 },
@@ -61,7 +61,7 @@
         tl.addLabel("mitades");
 
         const list = block(root, `Lista, uno por uno: hasta ${fmt(props.total)} comparaciones`, { x: 160, y: 228, className: "t40" });
-        writeIn(tl, list, ">", 0.7);
+        writeIn(tl, list, tl.duration(), 0.7);
         tl.addLabel("lista");
 
         const chain = drawChain(tl, { stage, root });
@@ -93,7 +93,12 @@
           tl.from(label, { opacity: 0, x: -20, duration: 0.4, ease: "expo.out" }, start + (k - 1) * 0.07 + 0.15);
         }
       }
-      const counter = block(root, "", { x: BAR.x, y: 884, className: "t72 counter" });
+      // Rows past the 10th are under 2 px wide: one line stands for the rest, down to a single number.
+      const restY = ROW.top + ROWS * ROW.gap + 26;
+      const rest = text(stage, `…  tras ${props.comparisons} mitades: queda 1 número`, { class: "t40 row-label", x: BAR.x, y: restY });
+      parts.push(rest);
+      writeIn(tl, rest, start + ROWS * 0.07 + 0.1, 0.5);
+      const counter = block(root, "", { x: BAR.x, y: 890, className: "t72 counter" });
       counter.innerHTML = 'Árbol: unas <span class="num">1</span> comparaciones';
       const number = counter.querySelector(".num");
       writeIn(tl, counter, start + 0.1, 0.5);
@@ -121,7 +126,7 @@
         const n = drawNode(g, node);
         tl.from(n, { scale: 0, transformOrigin: "50% 50%", duration: 0.45, ease: "expo.out" }, at + i * 0.25 + 0.1);
       });
-      const label = block(root, "", { x: 680, y: 480, className: "t40", width: 480 });
+      const label = block(root, "", { x: 680, y: 500, className: "t40", width: 480 });
       label.innerHTML = "Si insertas en orden,<br>se vuelve una lista";
       label.style.textAlign = "right";
       writeIn(tl, label, at + 0.8, 0.6);

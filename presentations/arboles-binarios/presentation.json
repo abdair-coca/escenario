@@ -87,7 +87,9 @@
             2
           ],
           "found": []
-        }
+        },
+        "previousTitle": "La regla",
+        "previousFocus": 30
       },
       "transition": {
         "type": "cut"

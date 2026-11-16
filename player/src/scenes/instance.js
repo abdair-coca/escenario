@@ -1,7 +1,7 @@
 // A scene instance: the template mounted inside a shadow root plus its paused timeline.
 // Everything visible depends on the timeline time, so any step can be shown by seeking.
 
-import { readStepTimes } from "./definition.js";
+import { readStepTimes, findCrossedHolds } from "./definition.js";
 import { CANVAS } from "../paths.js";
 import { motionFromTween, settledMotion } from "../shared/motion.js";
 
@@ -54,6 +54,9 @@ function wrapTimeline({ definition, steps, host, root, timeline }) {
   timeline.pause();
   const { times, errors } = readStepTimes(timeline.labels, steps);
   if (errors.length) throw new Error(errors.join("; "));
+  const spans = timeline.getChildren(false, true, true).map((child) => ({ start: child.startTime(), end: child.endTime() }));
+  const crossed = findCrossedHolds(spans, times, steps);
+  if (crossed.length) throw new Error(`an animation runs across the hold of step ${crossed.map((s) => `"${s}"`).join(", ")}`);
   timeline.seek(0, false);
 
   return {
