@@ -1,0 +1,106 @@
+<!--
+  embeddings — every chunk becomes a vector. The plane shows two numbers per vector, for drawing only;
+  real embeddings have hundreds. Chunks on the same topic land close together; the question lands
+  next to section 4.2. Coordinates: canvas = origin + 70 px × (x, y), y up.
+-->
+<template>
+  <style>
+    .axis { stroke: var(--muted); stroke-width: 4; stroke-linecap: round; }
+    .cluster { fill: none; stroke: var(--muted); stroke-width: 4; stroke-dasharray: 10 10; }
+    .dot { fill: var(--ink); }
+    .dot--far { fill: var(--muted); }
+    .dot--question { fill: var(--accent); }
+    .code40 { font-family: var(--font-code); font-size: 40px; font-weight: 400; }
+    .muted { fill: var(--muted); }
+    .hot { fill: var(--accent); }
+    /* a paper outline behind the word, so the dashed ring does not cut through it */
+    .halo { paint-order: stroke; stroke: var(--paper); stroke-width: 10px; stroke-linejoin: round; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const O = { x: 360, y: 620 }; // where the two axes cross
+    const K = 70; // pixels per unit
+    const at = ([x, y]) => [O.x + K * x, O.y - K * y];
+
+    const POINTS = [
+      { v: [3, 4], label: "4.2", group: "leave" },
+      { v: [2, 3], label: "4.5", group: "leave" },
+      { v: [4, 1], label: "4.3", group: "leave" },
+      { v: [-2, 2], group: "payroll" },
+      { v: [-1.5, 2.8], group: "payroll" },
+      { v: [-2.5, 1], group: "payroll" },
+      { v: [-1, -2.5], group: "remote" },
+      { v: [-1.5, -3.2], group: "remote" },
+      { v: [-0.5, -2.2], group: "remote" },
+      { v: [3, -4], label: "7.1 parking", group: "parking" },
+    ];
+    const LABEL_AT = { "4.2": [598, 336], "4.5": [520, 400], "4.3": [668, 556], "7.1 parking": [600, 912] };
+    const CLUSTERS = [
+      { cx: 560, cy: 430, r: 180, name: "leave", lx: 740, ly: 330 },
+      { cx: 220, cy: 485, r: 80, name: "payroll", lx: 150, ly: 372 },
+      { cx: 290, cy: 800, r: 70, name: "remote work", lx: 230, ly: 932 },
+    ];
+    const QUESTION = [4, 3];
+
+    registerScene({
+      id: "embeddings",
+      props: {},
+      steps: ["chunks", "clusters", "question", "numbers"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Meaning as position", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // chunks as points
+        const axisX = svg("line", { class: "axis", x1: 136, y1: O.y, x2: 976, y2: O.y }, stage);
+        const axisY = svg("line", { class: "axis", x1: O.x, y1: 280, x2: O.x, y2: 1000 }, stage);
+        tl.from([axisX, axisY], { drawSVG: 0, duration: 0.5, ease: "power2.inOut", stagger: 0.1 }, 0.3);
+        const dots = POINTS.map((p) => {
+          const [cx, cy] = at(p.v);
+          return svg("circle", { class: p.group === "parking" ? "dot dot--far" : "dot", cx, cy, r: 12 }, stage);
+        });
+        tl.from(dots, { scale: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out", stagger: 0.08 }, 0.8);
+        const labels = POINTS.filter((p) => p.label).map((p) => text(stage, p.label, { class: "code40 halo", x: LABEL_AT[p.label][0], y: LABEL_AT[p.label][1] }));
+        labels.forEach((el, i) => writeIn(tl, el, 1.8 + i * 0.12, 0.4));
+        tl.addLabel("chunks");
+
+        // clusters
+        let t = tl.duration();
+        const rings = CLUSTERS.map((c) => svg("circle", { class: "cluster", cx: c.cx, cy: c.cy, r: c.r }, stage));
+        tl.from(rings, { opacity: 0, duration: 0.5, ease: "power2.out", stagger: 0.15 }, t);
+        CLUSTERS.forEach((c, i) => writeIn(tl, text(stage, c.name, { class: "t40", x: c.lx, y: c.ly }), t + 0.4 + i * 0.15, 0.5));
+        tl.addLabel("clusters");
+
+        // question: a new point that lands in the leave cluster
+        t = tl.duration();
+        const [qx, qy] = at(QUESTION);
+        const q = svg("circle", { class: "dot--question", cx: qx, cy: qy, r: 16 }, stage);
+        tl.from(q, { scale: 0, transformOrigin: "50% 50%", duration: 0.5, ease: "expo.out" }, t);
+        writeIn(tl, text(stage, "question", { class: "code40 hot halo", x: qx + 28, y: qy + 14 }), t + 0.4, 0.5);
+        tl.addLabel("question");
+
+        // numbers: the vectors as lists
+        t = tl.duration();
+        const panel = svg("g", { class: "numbers" }, stage);
+        tl.from(panel, { opacity: 0, duration: 0.4, ease: "power2.out" }, t);
+        const rows = [
+          { t: "4.2 Parental leave", y: 360, cls: "t40" },
+          { t: "[3, 4]", y: 420, cls: "code40" },
+          { t: "question", y: 540, cls: "t40" },
+          { t: "[4, 3]", y: 600, cls: "code40 hot" },
+          { t: "2 numbers here, for drawing.", y: 700, cls: "t40 muted" },
+          { t: "Real embeddings use hundreds.", y: 750, cls: "t40 muted" },
+        ];
+        rows.forEach((row, i) => writeIn(tl, text(panel, row.t, { class: row.cls, x: 1160, y: row.y }), t + 0.2 + i * 0.12, 0.45));
+        tl.addLabel("numbers");
+
+        return tl;
+      },
+    });
+  })();
+</script>

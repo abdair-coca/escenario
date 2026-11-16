@@ -1,0 +1,53 @@
+<!--
+  when-to-use — three cases, each ticked in turn: RAG for facts that change or need a source; fine-tuning
+  for style and behaviour; plain prompting when the text fits. The one idea is written last.
+-->
+<template>
+  <style>
+    .box { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .tick { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+    .hot { fill: var(--accent); }
+  </style>
+</template>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const CASES = [
+      { id: "facts", t: "Facts that change, or need a source → RAG", y: 400 },
+      { id: "style", t: "Style, format or behaviour → fine-tuning", y: 530 },
+      { id: "small", t: "It fits in the prompt → paste it", y: 660 },
+    ];
+
+    registerScene({
+      id: "when-to-use",
+      props: {},
+      steps: ["facts", "style", "small", "idea"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "When to use RAG", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // each case: an empty box, then its text, then the tick
+        CASES.forEach((c, i) => {
+          const at = tl.duration();
+          const box = svg("rect", { class: "box", x: 200, y: c.y - 40, width: 56, height: 56, rx: 10 }, stage);
+          const tick = svg("path", { class: "tick", d: `M212,${c.y - 12} l12,12 l24,-30` }, stage);
+          const label = text(stage, c.t, { class: "t56", x: 290, y: c.y });
+          tl.from(box, { drawSVG: 0, fillOpacity: 0, duration: 0.45, ease: "power2.inOut" }, at);
+          tl.from(tick, { drawSVG: 0, duration: 0.3, ease: "power2.out" }, at + 0.45);
+          writeIn(tl, label, at + 0.6, 0.6);
+          tl.addLabel(c.id);
+        });
+
+        // idea: the one sentence, under the cases
+        const at = tl.duration();
+        writeIn(tl, block(root, "RAG finds the passages closest to the question, by cosine, and hands them to the model, which answers from them.", { x: 160, y: 800, className: "t56", width: 1600 }), at, 0.9);
+        tl.addLabel("idea");
+
+        return tl;
+      },
+    });
+  })();
+</script>

@@ -1,0 +1,53 @@
+/* «Index card»: warm paper with ruled lines and a thin vermilion margin. Ink for text and lines,
+   vermilion for what was retrieved and is moving, teal for notes, green and red for pass and fail. */
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("../../player/vendor/fonts/bricolage-grotesque-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-display: block;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("../../player/vendor/fonts/bricolage-grotesque-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../player/vendor/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../player/vendor/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
+}
+
+:root {
+  --paper: #f4efe4;
+  --grid: #e2daca;
+  --margin: #e3a59a;
+  --ink: #1e1b18;
+  --muted: #9c9385;
+  --accent: #d8552b; /* vermilion: the question, what was retrieved, the top k */
+  --accent-2: #1d6f73; /* teal: pins and notes */
+  --accent-3: #2f7d4f; /* green: pass */
+  --ok: var(--accent-3);
+  --block: #b8322a; /* red: fail */
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, monospace;
+  --wipe: var(--ink);
+}
+
+/* Ruled paper with one margin line. It sits on every scene host, so it travels with push and zoom. */
+.scene-host {
+  background-image:
+    linear-gradient(90deg, transparent 118px, var(--margin) 118px, var(--margin) 120px, transparent 120px),
+    linear-gradient(var(--grid) 2px, transparent 2px);
+  background-size: auto, 56px 56px;
+  background-position: 0 0, 0 -1px;
+}

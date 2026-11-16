@@ -1,0 +1,114 @@
+<!--
+  cosine-angle — cosine compares the angle between two arrows. The question (vermilion) and chunk 4.2
+  (ink) point almost the same way: 16°, cosine 0.96. A longer copy of 4.2 keeps the same score. The
+  parking arrow is at a right angle: 0. The scale runs from −1 to +1.
+  Coordinates: origin (240, 660), 80 px per unit, y up. The arc has the class `arc` (zoom target).
+-->
+<template>
+  <style>
+    .axis { stroke: var(--muted); stroke-width: 3; stroke-linecap: round; }
+    .shaft { fill: none; stroke: var(--ink); stroke-width: 8; stroke-linecap: round; }
+    .head { fill: var(--ink); }
+    .arrow--q .shaft { stroke: var(--accent); }
+    .arrow--q .head { fill: var(--accent); }
+    .arrow--long .shaft { stroke: var(--muted); stroke-width: 6; }
+    .arrow--long .head { fill: var(--muted); }
+    .arrow--park .shaft { stroke: var(--muted); }
+    .arrow--park .head { fill: var(--muted); }
+    .arc { fill: none; stroke: var(--ink); stroke-width: 4; }
+    .scale { stroke: var(--ink); stroke-width: 6; stroke-linecap: round; }
+    .tick { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+    .marker { fill: var(--accent); }
+    .marker--far { fill: var(--muted); }
+    .code40 { font-family: var(--font-code); font-size: 40px; font-weight: 400; }
+    .hot { fill: var(--accent); }
+    .muted { fill: var(--muted); }
+    .end { text-anchor: end; }
+    .center { text-anchor: middle; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const O = { x: 240, y: 660 };
+    const K = 80;
+    const at = ([x, y]) => [O.x + K * x, O.y - K * y];
+
+    // An arrow from `from` to `to`: a shaft and a head, both in one group.
+    function arrow(parent, from, to, cls) {
+      const [x1, y1] = from;
+      const [x2, y2] = to;
+      const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
+      const g = svg("g", { class: `arrow ${cls}` }, parent);
+      const shaft = svg("path", { class: "shaft", d: `M${x1},${y1} L${x2},${y2}` }, g);
+      const headGroup = svg("g", { transform: `translate(${x2},${y2}) rotate(${angle})` }, g);
+      const head = svg("path", { class: "head", d: "M0,0 L-30,-15 L-30,15 Z" }, headGroup);
+      return { shaft, head };
+    }
+
+    registerScene({
+      id: "cosine-angle",
+      props: {},
+      steps: ["angle", "length", "scale"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Cosine measures direction", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        const axisX = svg("line", { class: "axis", x1: 160, y1: O.y, x2: 900, y2: O.y }, stage);
+        const axisY = svg("line", { class: "axis", x1: O.x, y1: 240, x2: O.x, y2: 1000 }, stage);
+        tl.from([axisX, axisY], { drawSVG: 0, duration: 0.4, ease: "power2.inOut", stagger: 0.1 }, 0.3);
+
+        // the longer copy is created first, so it sits under the other arrows
+        const long = arrow(stage, [O.x, O.y], at([3.75, 5]), "arrow--long");
+
+        // step 1: the question and chunk 4.2, and the angle between them
+        const q = arrow(stage, [O.x, O.y], at([4, 3]), "arrow--q");
+        const a = arrow(stage, [O.x, O.y], at([3, 4]), "");
+        tl.from([q.shaft, a.shaft], { drawSVG: 0, duration: 0.7, ease: "power2.inOut", stagger: 0.1 }, 0.7);
+        tl.from([q.head.parentNode, a.head.parentNode], { opacity: 0, duration: 0.3, ease: "power2.out" }, 1.2);
+        const arc = svg("path", { class: "arc", d: "M306,572 A110,110 0 0 1 328,594" }, stage);
+        tl.from(arc, { drawSVG: 0, duration: 0.5, ease: "power2.inOut" }, 1.4);
+        writeIn(tl, text(stage, "16°", { class: "code40", x: 376, y: 616 }), 1.8, 0.4);
+        writeIn(tl, text(stage, "question", { class: "code40 hot", x: 584, y: 436 }), 1.6, 0.5);
+        writeIn(tl, text(stage, "4.2", { class: "code40 end", x: 458, y: 326 }), 1.8, 0.4);
+        writeIn(tl, text(stage, "cos θ = 0.96", { class: "t72", x: 1000, y: 420 }), 2.0, 0.6);
+        tl.addLabel("angle");
+
+        // step 2: a longer copy of 4.2 points the same way
+        let t = tl.duration();
+        tl.from(long.shaft, { drawSVG: 0, duration: 0.7, ease: "power2.inOut" }, t);
+        tl.from(long.head.parentNode, { opacity: 0, duration: 0.3, ease: "power2.out" }, t + 0.6);
+        writeIn(tl, text(stage, "longer, same direction", { class: "code40", x: 566, y: 262 }), t + 0.7, 0.6);
+        tl.addLabel("length");
+
+        // step 3: the scale, and the parking arrow at a right angle
+        t = tl.duration();
+        const park = arrow(stage, [O.x, O.y], at([3, -4]), "arrow--park");
+        tl.from(park.shaft, { drawSVG: 0, duration: 0.6, ease: "power2.inOut" }, t);
+        tl.from(park.head.parentNode, { opacity: 0, duration: 0.3, ease: "power2.out" }, t + 0.5);
+        writeIn(tl, text(stage, "7.1 parking", { class: "code40 muted", x: 504, y: 990 }), t + 0.5, 0.5);
+
+        const scale = svg("line", { class: "scale", x1: 1040, y1: 760, x2: 1640, y2: 760 }, stage);
+        const ticks = [1040, 1340, 1640].map((x) => svg("line", { class: "tick", x1: x, y1: 740, x2: x, y2: 780 }, stage));
+        tl.from(scale, { drawSVG: 0, duration: 0.5, ease: "power2.inOut" }, t + 0.4);
+        tl.from(ticks, { scaleY: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out", stagger: 0.1 }, t + 0.7);
+        [["−1", 1040, "opposite"], ["0", 1340, "unrelated"], ["+1", 1640, "same direction"]].forEach(([n, x, word], i) => {
+          writeIn(tl, text(stage, n, { class: "code40 center", x, y: 830 }), t + 0.9 + i * 0.1, 0.4);
+          writeIn(tl, text(stage, word, { class: "t40 center", x, y: 892 }), t + 1.0 + i * 0.1, 0.5);
+        });
+        const far = svg("circle", { class: "marker marker--far", cx: 1340, cy: 760, r: 14 }, stage);
+        const near = svg("circle", { class: "marker", cx: 1628, cy: 760, r: 14 }, stage);
+        tl.from([far, near], { scale: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out", stagger: 0.15 }, t + 1.2);
+        writeIn(tl, text(stage, "7.1 · 0.00", { class: "code40 center muted", x: 1340, y: 700 }), t + 1.5, 0.4);
+        writeIn(tl, text(stage, "4.2 · 0.96", { class: "code40 center hot", x: 1628, y: 700 }), t + 1.6, 0.4);
+        tl.addLabel("scale");
+
+        return tl;
+      },
+    });
+  })();
+</script>

@@ -1,0 +1,99 @@
+<!--
+  retrieval — the question is compared with every chunk (one cosine each). The scores are ranked:
+  4.2 0.96, 4.5 0.94, 4.3 0.92, 7.1 0.00. The top k = 3 are kept and go on as text. The group of the
+  top three rows has the class `topk` (reveal target for the next scene).
+-->
+<template>
+  <style>
+    .card { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .bus { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+    .tick { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; }
+    .bar { fill: var(--ink); }
+    .cut { fill: none; stroke: var(--accent); stroke-width: 5; stroke-dasharray: 14 12; stroke-linecap: round; }
+    .code40 { font-family: var(--font-code); font-size: 40px; font-weight: 400; }
+    .hot { fill: var(--accent); }
+    .muted { fill: var(--muted); }
+    .topk { fill: none; stroke: none; }
+  </style>
+</template>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const BUS_X = 520;
+    const ROWS = [
+      { label: "4.2 Parental leave", score: 0.96 },
+      { label: "4.5 Paternity leave", score: 0.94 },
+      { label: "4.3 Return to work", score: 0.92 },
+      { label: "7.1 Parking", score: 0.0 },
+    ];
+    const BASE = [400, 520, 640, 760]; // text baseline of each row
+    const SCALE = 500; // pixels for a score of 1
+    const BAR_X = 1000;
+    const HOT = "#d8552b"; // same as --accent (GSAP cannot tween var())
+    const MUTED = "#9c9385";
+
+    registerScene({
+      id: "retrieval",
+      props: {},
+      steps: ["compare", "score", "top-k", "text"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Retrieval: the closest few", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // compare: the question, a bus, and one row per chunk
+        const card = svg("rect", { class: "card", x: 160, y: 380, width: 300, height: 150, rx: 14 }, stage);
+        const qLabel = text(stage, "question", { class: "t40", x: 190, y: 436 });
+        const qVector = text(stage, "[4, 3]", { class: "code40", x: 190, y: 496 });
+        const link = svg("line", { class: "bus", x1: 460, y1: 455, x2: BUS_X, y2: 455 }, stage);
+        const bus = svg("line", { class: "bus", x1: BUS_X, y1: BASE[0] - 14, x2: BUS_X, y2: BASE[3] - 14 }, stage);
+        tl.from(card, { drawSVG: 0, duration: 0.5, ease: "power2.inOut" }, 0.3);
+        writeIn(tl, qLabel, 0.6, 0.4);
+        writeIn(tl, qVector, 0.7, 0.4);
+        tl.from([link, bus], { drawSVG: 0, duration: 0.6, ease: "power2.inOut" }, 0.9);
+        const rows = ROWS.map((row, i) => {
+          const y = BASE[i];
+          const tick = svg("line", { class: "tick", x1: BUS_X, y1: y - 14, x2: 560, y2: y - 14 }, stage);
+          const label = text(stage, row.label, { class: "t40", x: 580, y });
+          return { tick, label, y };
+        });
+        rows.forEach((row, i) => {
+          tl.from(row.tick, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.3, ease: "power2.out" }, 1.4 + i * 0.12);
+          writeIn(tl, row.label, 1.5 + i * 0.12, 0.4);
+        });
+        tl.addLabel("compare");
+
+        // score: each bar grows to its cosine
+        let t = tl.duration();
+        const bars = ROWS.map((row, i) => {
+          const w = row.score * SCALE;
+          return svg("rect", { class: "bar", x: BAR_X, y: BASE[i] - 36, width: Math.max(w, 0), height: 44, rx: 8 }, stage);
+        });
+        const values = ROWS.map((row, i) => text(stage, row.score.toFixed(2), { class: "code40", x: BAR_X + row.score * SCALE + 24, y: BASE[i] }, ));
+        bars.forEach((bar, i) => tl.from(bar, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.6, ease: "expo.out" }, t + i * 0.12));
+        values.forEach((el, i) => writeIn(tl, el, t + 0.4 + i * 0.12, 0.35));
+        tl.addLabel("score");
+
+        // top-k: the top three turn vermilion; the cut line says k = 3
+        t = tl.duration();
+        tl.to(bars.slice(0, 3), { fill: HOT, duration: 0.5, ease: "power2.inOut", stagger: 0.1 }, t);
+        tl.to(rows[3].label, { fill: MUTED, duration: 0.4, ease: "power2.out" }, t);
+        const cut = svg("line", { class: "cut", x1: 560, y1: 686, x2: 1640, y2: 686 }, stage);
+        tl.from(cut, { opacity: 0, duration: 0.4, ease: "power2.out" }, t + 0.5);
+        writeIn(tl, text(stage, "k = 3", { class: "code40 hot", x: 1664, y: 696 }), t + 0.7, 0.4);
+        svg("rect", { class: "topk", x: 560, y: 356, width: 1100, height: 340 }, stage);
+        tl.addLabel("top-k");
+
+        // text: the chunks go on as text, with their sections
+        t = tl.duration();
+        writeIn(tl, text(stage, "1,236 more chunks, not shown", { class: "t40 muted", x: 580, y: 860 }), t, 0.6);
+        writeIn(tl, text(stage, "→ the text of the top 3 goes on, with its section number", { class: "t40 hot", x: 580, y: 960 }), t + 0.5, 0.8);
+        tl.addLabel("text");
+
+        return tl;
+      },
+    });
+  })();
+</script>

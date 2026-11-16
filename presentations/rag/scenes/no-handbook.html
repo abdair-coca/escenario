@@ -1,0 +1,78 @@
+<!--
+  no-handbook — a model answers from what it learned. Section 4.2 of the handbook (16 weeks) is not
+  in it, so the confident answer "12 weeks" has no source. The page is shown last; the link to the
+  answer stays broken.
+-->
+<template>
+  <style>
+    .card { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .page { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .rule { stroke: var(--ink); stroke-width: 3; }
+    .line { fill: var(--grid); }
+    .mark-hl { fill: var(--accent); fill-opacity: 0.4; }
+    .stamp { fill: none; stroke: var(--block); stroke-width: 6; }
+    .stamp-text { fill: var(--block); }
+    .broken { fill: none; stroke: var(--block); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 18 12; }
+    .cross { fill: none; stroke: var(--block); stroke-width: 6; stroke-linecap: round; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+
+    registerScene({
+      id: "no-handbook",
+      props: {},
+      steps: ["question", "guess", "stamp", "handbook"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "The model never read it", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // question
+        writeIn(tl, text(stage, "How many weeks of parental leave do we get?", { class: "t56", x: 160, y: 300 }), 0.4, 0.8);
+        tl.addLabel("question");
+
+        // guess: a fluent answer with no source
+        let at = tl.duration();
+        const card = svg("rect", { class: "card", x: 160, y: 380, width: 1000, height: 200, rx: 16 }, stage);
+        // the fill fades in too: a paper fill on a ruled background would hide the lines before the card draws
+        tl.from(card, { drawSVG: 0, fillOpacity: 0, duration: 0.6, ease: "power2.inOut" }, at);
+        writeIn(tl, text(stage, "12 weeks of paid leave.", { class: "t56", x: 210, y: 500 }), at + 0.5, 0.7);
+        tl.addLabel("guess");
+
+        // stamp: it cites nothing
+        at = tl.duration();
+        const stampBox = svg("rect", { class: "stamp", x: 160, y: 640, width: 340, height: 110, rx: 10 }, stage);
+        const stampText = text(stage, "no source", { class: "t56 mid stamp-text", x: 330, y: 697 });
+        tl.from([stampBox, stampText], { scale: 1.3, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at);
+        writeIn(tl, text(stage, "it cites nothing", { class: "t40", x: 540, y: 700 }), at + 0.4, 0.5);
+        tl.addLabel("stamp");
+
+        // handbook: the page, the fact, and the link that is missing
+        at = tl.duration();
+        const page = svg("rect", { class: "page", x: 1340, y: 380, width: 480, height: 560, rx: 14 }, stage);
+        tl.from(page, { opacity: 0, duration: 0.4, ease: "power2.out" }, at);
+        writeIn(tl, text(stage, "4.2 Parental leave", { class: "t40", x: 1380, y: 452 }), at + 0.1, 0.5);
+        const rule = svg("line", { class: "rule", x1: 1380, y1: 480, x2: 1780, y2: 480 }, stage);
+        tl.from(rule, { drawSVG: 0, duration: 0.4, ease: "power2.inOut" }, at + 0.3);
+        const bars = [[520, 400], [556, 360], [592, 400], [628, 300], [740, 400], [776, 340], [812, 390]].map(([y, w]) =>
+          svg("rect", { class: "line", x: 1380, y: y - 8, width: w, height: 16, rx: 8 }, stage));
+        tl.from(bars, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.4, ease: "power2.out", stagger: 0.04 }, at + 0.4);
+        const hl = svg("rect", { class: "mark-hl", x: 1370, y: 664, width: 420, height: 52, rx: 6 }, stage);
+        tl.from(hl, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.5, ease: "expo.out" }, at + 0.9);
+        writeIn(tl, text(stage, "16 weeks, paid", { class: "t40", x: 1380, y: 700 }), at + 1.0, 0.5);
+        const link = svg("path", { class: "broken", d: "M1160,480 L1340,480" }, stage);
+        tl.from(link, { opacity: 0, duration: 0.4 }, at + 1.2);
+        const cross = svg("path", { class: "cross", d: "M1232,452 L1268,508 M1268,452 L1232,508" }, stage);
+        tl.from(cross, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, at + 1.3);
+        tl.addLabel("handbook");
+
+        return tl;
+      },
+    });
+  })();
+</script>

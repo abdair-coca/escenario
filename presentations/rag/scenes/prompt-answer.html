@@ -1,0 +1,96 @@
+<!--
+  prompt-answer — the prompt is plain text: an instruction, the top passages with their sections, and
+  the question. The LLM reads it and writes the answer word by word; the citation lets you check it.
+  Entered from the top-k group of retrieval (reveal target .topk).
+-->
+<template>
+  <style>
+    .card { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .passage { fill: var(--paper); stroke: var(--ink); stroke-width: 3; }
+    .bar-hot { fill: var(--accent); }
+    .arrow { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: round; }
+    .arrow-head { fill: var(--ink); }
+    .check { fill: none; stroke: var(--ok); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+    .code40 { font-family: var(--font-code); font-size: 40px; font-weight: 400; }
+    .muted { fill: var(--muted); }
+    .hot { fill: var(--accent); }
+    .center { text-anchor: middle; }
+  </style>
+</template>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+
+    registerScene({
+      id: "prompt-answer",
+      props: {},
+      steps: ["instructions", "passages", "llm", "answer"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Prompt and answer", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // instructions: the first part of the sheet
+        const sheet = svg("rect", { class: "card", x: 160, y: 250, width: 860, height: 650, rx: 14 }, stage);
+        tl.from(sheet, { drawSVG: 0, duration: 0.6, ease: "power2.inOut" }, 0.3);
+        writeIn(tl, text(stage, "instruction", { class: "code40 muted", x: 200, y: 304 }), 0.8, 0.4);
+        writeIn(tl, text(stage, "Answer only from these passages.", { class: "t40", x: 200, y: 354 }), 1.0, 0.7);
+        writeIn(tl, text(stage, "Cite the section.", { class: "t40", x: 200, y: 404 }), 1.4, 0.5);
+        tl.addLabel("instructions");
+
+        // passages: three groups that slide onto the sheet
+        let t = tl.duration();
+        writeIn(tl, text(stage, "passages", { class: "code40 muted", x: 200, y: 466 }), t, 0.4);
+        const PASSAGES = [
+          { y: 490, text: "[4.2] Parental leave: 16 weeks, paid." },
+          { y: 580, text: "[4.5] Paternity leave: 8 weeks, paid." },
+          { y: 670, text: "[4.3] Return to work: plan with HR." },
+        ];
+        const groups = PASSAGES.map((p) => {
+          const g = svg("g", {}, stage);
+          svg("rect", { class: "passage", x: 200, y: p.y, width: 780, height: 70, rx: 8 }, g);
+          svg("rect", { class: "bar-hot", x: 200, y: p.y, width: 10, height: 70, rx: 4 }, g);
+          text(g, p.text, { class: "t40", x: 232, y: p.y + 46 });
+          return g;
+        });
+        groups.forEach((g, i) => tl.from(g, { x: 80, opacity: 0, duration: 0.6, ease: "expo.out" }, t + 0.3 + i * 0.25));
+        tl.addLabel("passages");
+
+        // llm: the question joins the sheet; the sheet goes to the model
+        t = tl.duration();
+        writeIn(tl, text(stage, "question", { class: "code40 muted", x: 200, y: 790 }), t, 0.4);
+        writeIn(tl, text(stage, "How many weeks of parental leave", { class: "t40", x: 200, y: 836 }), t + 0.3, 0.7);
+        writeIn(tl, text(stage, "do we get?", { class: "t40", x: 200, y: 884 }), t + 0.7, 0.5);
+        const arrow = svg("path", { class: "arrow", d: "M1030,490 L1100,490" }, stage);
+        const head = svg("path", { class: "arrow-head", d: "M1116,490 L1090,476 L1090,504 Z" }, stage);
+        tl.from(arrow, { drawSVG: 0, duration: 0.4, ease: "power2.inOut" }, t + 0.8);
+        tl.from(head, { opacity: 0, duration: 0.3, ease: "power2.out" }, t + 1.0);
+        const llm = svg("rect", { class: "card", x: 1120, y: 380, width: 640, height: 220, rx: 16 }, stage);
+        tl.from(llm, { opacity: 0, duration: 0.4, ease: "power2.out" }, t + 1.0);
+        writeIn(tl, text(stage, "LLM", { class: "t72 center", x: 1440, y: 480 }), t + 1.2, 0.5);
+        writeIn(tl, text(stage, "reads, then writes", { class: "t40 center muted", x: 1440, y: 552 }), t + 1.5, 0.5);
+        tl.addLabel("llm");
+
+        // answer: the words come one by one, then the source with a check
+        t = tl.duration();
+        const answer = svg("text", { class: "t72", x: 1120, y: 740 }, stage);
+        // tspans fade in with fill-opacity: opacity is not applied to tspans in every browser,
+        // and a paper-coloured fill would erase the ruled lines behind the text
+        const words = ["16 ", "weeks, ", "paid."].map((content) => {
+          const word = svg("tspan", {}, answer);
+          word.textContent = content;
+          return word;
+        });
+        tl.from(words, { fillOpacity: 0, duration: 0.2, ease: "power2.out", stagger: 0.35 }, t);
+        const check = svg("path", { class: "check", d: "M1120,826 L1138,844 L1172,808" }, stage);
+        tl.from(check, { drawSVG: 0, duration: 0.4, ease: "power2.inOut" }, t + 1.4);
+        writeIn(tl, text(stage, "Source: §4.2", { class: "code40 hot", x: 1190, y: 846 }), t + 1.7, 0.5);
+        tl.addLabel("answer");
+
+        return tl;
+      },
+    });
+  })();
+</script>

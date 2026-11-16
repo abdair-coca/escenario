@@ -1,0 +1,93 @@
+<!--
+  chunks — a long document is cut into chunks. Brackets show three chunks that overlap a little;
+  chunk 2 holds section 4.2. The last step shows chunk 2's text, which is what the search sees.
+-->
+<template>
+  <style>
+    .page { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .line { fill: var(--grid); }
+    .bracket { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+    .bracket--hot { stroke: var(--accent); }
+    .band { fill: var(--accent); fill-opacity: 0.28; }
+    .card { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .rule { stroke: var(--ink); stroke-width: 3; }
+    .leader { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+    .code40 { font-family: var(--font-code); font-size: 40px; font-weight: 400; }
+    .muted { fill: var(--muted); }
+    .hot { fill: var(--accent); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const TOP = 300; // y of the first line of the page
+    const LINE = 34; // distance between lines
+    const WIDTHS = [480, 420, 470, 360, 480, 440, 470, 300, 480, 430, 460, 390, 480, 440, 470, 320, 480, 450, 410, 300];
+    // Each chunk: first and last line (inclusive), and the x of its bracket.
+    const CHUNKS = [
+      { from: 0, to: 7, x: 830 },
+      { from: 6, to: 13, x: 860, hot: true },
+      { from: 12, to: 19, x: 890 },
+    ];
+    const OVERLAPS = [[6, 7], [12, 13]]; // lines that two neighbouring chunks share
+
+    registerScene({
+      id: "chunks",
+      props: {},
+      steps: ["page", "cut", "overlap", "chunk"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Chunks: cut the handbook", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // page: the handbook as grey lines
+        const page = svg("rect", { class: "page", x: 160, y: 250, width: 620, height: 750, rx: 14 }, stage);
+        const lines = WIDTHS.map((w, i) => svg("rect", { class: "line", x: 200, y: TOP + i * LINE, width: w, height: 14, rx: 7 }, stage));
+        tl.from(page, { opacity: 0, duration: 0.4, ease: "power2.out" }, 0.3);
+        tl.from(lines, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.35, ease: "power2.out", stagger: 0.03 }, 0.6);
+        tl.addLabel("page");
+
+        // cut: three brackets, chunk 2 in vermilion
+        let at = tl.duration();
+        const brackets = CHUNKS.map((c) => {
+          const top = TOP + c.from * LINE - 12;
+          const bottom = TOP + c.to * LINE + 26;
+          return svg("path", { class: c.hot ? "bracket bracket--hot" : "bracket", d: `M${c.x + 16},${top} H${c.x} V${bottom} H${c.x + 16}` }, stage);
+        });
+        tl.from(brackets, { drawSVG: 0, duration: 0.6, ease: "power2.inOut", stagger: 0.15 }, at);
+        tl.addLabel("cut");
+
+        // overlap: the shared lines are shaded
+        at = tl.duration();
+        const bands = OVERLAPS.map(([a, b]) =>
+          svg("rect", { class: "band", x: 190, y: TOP + a * LINE - 8, width: 580, height: (b - a) * LINE + 30, rx: 6 }, stage));
+        tl.from(bands, { opacity: 0, duration: 0.5, ease: "power2.out", stagger: 0.2 }, at);
+        tl.addLabel("overlap");
+
+        // chunk: what the search sees, with its source
+        at = tl.duration();
+        const panel = svg("g", { class: "chunk-panel" }, stage);
+        svg("rect", { class: "card", x: 960, y: 380, width: 800, height: 500, rx: 16 }, panel);
+        const leader = svg("path", { class: "leader", d: "M876,630 H960" }, stage);
+        tl.from(panel, { opacity: 0, duration: 0.4, ease: "power2.out" }, at);
+        tl.from(leader, { drawSVG: 0, duration: 0.4, ease: "power2.inOut" }, at + 0.2);
+        const rows = [
+          { t: "chunk 2 · sections 4.1–4.3", y: 440, cls: "code40 muted" },
+          { t: "4.2 Parental leave", y: 540, cls: "t40" },
+          { t: "Employees get 16 weeks", y: 610, cls: "t40 hot" },
+          { t: "of paid parental leave.", y: 660, cls: "t40" },
+          { t: "4.3 Return to work", y: 740, cls: "t40 muted" },
+        ];
+        rows.forEach((row, i) => writeIn(tl, text(panel, row.t, { class: row.cls, x: 1000, y: row.y }), at + 0.3 + i * 0.1, 0.45));
+        svg("line", { class: "rule", x1: 1000, y1: 470, x2: 1720, y2: 470 }, panel);
+        [800, 836].forEach((y, i) => svg("rect", { class: "line", x: 1000, y: y - 8, width: [620, 540][i], height: 16, rx: 8 }, panel));
+        tl.addLabel("chunk");
+
+        return tl;
+      },
+    });
+  })();
+</script>

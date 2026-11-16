@@ -1,0 +1,85 @@
+<!--
+  measure — ten test questions, each with its expected section. Retrieval and answers are checked
+  apart: 8 of 10 have the right section in the top 3; 7 of those 8 answers are supported by their
+  passage. The numbers are illustrative. Colours are set with hex values so GSAP can tween them.
+-->
+<template>
+  <style>
+    .tile { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+    .code40 { font-family: var(--font-code); font-size: 40px; font-weight: 400; }
+    .muted { fill: var(--muted); }
+    .bad { fill: var(--block); }
+    .center { text-anchor: middle; }
+  </style>
+</template>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const GREEN = "#2f7d4f"; // --ok
+    const RED = "#b8322a"; // --block
+    const PAPER = "#f4efe4";
+    const MISS = [3, 8]; // the right section is not in the top 3
+    const UNSUPPORTED = 5; // retrieved, but the answer is not in its passage
+
+    registerScene({
+      id: "measure",
+      props: {},
+      steps: ["set", "retrieval", "answer", "fix"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Measure each stage", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // ten tiles, five per row
+        const tiles = [];
+        const labels = [];
+        for (let i = 0; i < 10; i += 1) {
+          const x = 160 + (i % 5) * 190;
+          const y = 300 + Math.floor(i / 5) * 190;
+          tiles.push(svg("rect", { class: "tile", x, y, width: 150, height: 150, rx: 12 }, stage));
+          labels.push(text(stage, `Q${i + 1}`, { class: "code40 center", x: x + 75, y: y + 75 }));
+        }
+        // set: the questions, and the one example
+        tl.from(tiles, { scale: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out", stagger: 0.06 }, 0.3);
+        labels.forEach((el, i) => writeIn(tl, el, 0.6 + i * 0.06, 0.3));
+        writeIn(tl, text(stage, "Q1 · parental leave → section 4.2", { class: "t40 muted", x: 160, y: 690 }), 1.4, 0.7);
+        tl.addLabel("set");
+
+        // retrieval: green when the right section is in the top 3, red when it is not
+        let t = tl.duration();
+        const totalsRetrieval = [
+          writeIn(tl, text(stage, "retrieval", { class: "t40 muted", x: 1100, y: 360 }), t, 0.5),
+          writeIn(tl, text(stage, "8 / 10", { class: "t200", x: 1100, y: 540 }), t + 0.3, 0.8),
+          writeIn(tl, text(stage, "right section in the top 3", { class: "t40", x: 1100, y: 610 }), t + 0.8, 0.6),
+        ];
+        tiles.forEach((tile, i) => {
+          const miss = MISS.includes(i);
+          tl.to(tile, { fill: miss ? RED : GREEN, duration: 0.4, ease: "power2.out" }, t + 0.4 + i * 0.05);
+          tl.to(labels[i], { fill: PAPER, duration: 0.3, ease: "power2.out" }, t + 0.5 + i * 0.05);
+        });
+        writeIn(tl, text(stage, "red: the section is not in the top 3", { class: "t40 bad", x: 160, y: 760 }), t + 1.2, 0.7);
+        tl.addLabel("retrieval");
+
+        // answer: of the eight retrieved, seven are supported; one is not
+        t = tl.duration();
+        writeIn(tl, text(stage, "answers", { class: "t40 muted", x: 1100, y: 700 }), t, 0.5);
+        writeIn(tl, text(stage, "7 / 8", { class: "t200", x: 1100, y: 880 }), t + 0.3, 0.8);
+        writeIn(tl, text(stage, "supported by their passage", { class: "t40", x: 1100, y: 950 }), t + 0.8, 0.6);
+        tl.to(tiles[UNSUPPORTED], { fill: PAPER, stroke: RED, duration: 0.4, ease: "power2.out" }, t + 0.4);
+        tl.to(labels[UNSUPPORTED], { fill: RED, duration: 0.4, ease: "power2.out" }, t + 0.4);
+        writeIn(tl, text(stage, "outline: the answer is not in its passage", { class: "t40 bad", x: 160, y: 830 }), t + 1.0, 0.7);
+        tl.addLabel("answer");
+
+        // fix: each failure points at one stage
+        t = tl.duration();
+        writeIn(tl, text(stage, "2 misses → check the chunks or k", { class: "t40", x: 160, y: 910 }), t, 0.7);
+        writeIn(tl, text(stage, "1 unsupported answer → check the prompt", { class: "t40", x: 160, y: 970 }), t + 0.5, 0.7);
+        tl.addLabel("fix");
+
+        return tl;
+      },
+    });
+  })();
+</script>

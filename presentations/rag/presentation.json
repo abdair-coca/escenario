@@ -1,0 +1,226 @@
+{
+  "title": "How RAG works",
+  "lang": "en",
+  "theme": "theme.css",
+  "scenes": [
+    {
+      "scene": "scenes/no-handbook",
+      "title": "The model never read it",
+      "transition": { "type": "cut" },
+      "notes": {
+        "question": "This is the question a team bot gets every day: how many weeks of parental leave do we get?",
+        "guess": "The model answers twelve weeks, fluently and with confidence. Fluent is not the same as right.",
+        "stamp": "It cites nothing, because it never saw our handbook.",
+        "handbook": "The fact is in the handbook: section 4.2, sixteen weeks, paid. The model cannot see it. RAG has to bring it."
+      }
+    },
+    {
+      "scene": "library/pipeline",
+      "title": "Two phases, one flow",
+      "props": {
+        "title": "Two phases, one flow",
+        "elements": [
+          { "id": "lane-index", "kind": "text", "text": "Index · built once", "x": 160, "y": 236, "size": 40 },
+          { "id": "handbook", "kind": "piece", "label": "Handbook", "detail": "60 pages", "x": 160, "y": 290, "width": 340 },
+          { "id": "chunks", "kind": "piece", "label": "Chunks", "detail": "~300 words", "x": 560, "y": 290, "width": 300 },
+          { "id": "vectors", "kind": "piece", "label": "Vectors", "detail": "one per chunk", "x": 960, "y": 290, "width": 340 },
+          { "id": "index", "kind": "piece", "label": "Index", "detail": "stored once", "x": 1400, "y": 290, "width": 360 },
+          { "id": "l-hc", "kind": "link", "from": "handbook", "to": "chunks" },
+          { "id": "l-cv", "kind": "link", "from": "chunks", "to": "vectors" },
+          { "id": "l-vi", "kind": "link", "from": "vectors", "to": "index" },
+          { "id": "lane-query", "kind": "text", "text": "Each question", "x": 160, "y": 584, "size": 40 },
+          { "id": "query", "kind": "piece", "label": "Query", "detail": "embedded", "x": 160, "y": 640, "width": 260 },
+          { "id": "search", "kind": "piece", "label": "Search", "detail": "cosine", "x": 500, "y": 640, "width": 260 },
+          { "id": "prompt", "kind": "piece", "label": "Prompt", "detail": "passages", "x": 840, "y": 640, "width": 260 },
+          { "id": "llm", "kind": "piece", "label": "LLM", "detail": "writes", "x": 1180, "y": 640, "width": 260 },
+          { "id": "answer", "kind": "piece", "label": "Answer", "detail": "+ citation", "x": 1520, "y": 640, "width": 300 },
+          { "id": "l-qs", "kind": "link", "from": "query", "to": "search" },
+          { "id": "l-sp", "kind": "link", "from": "search", "to": "prompt" },
+          { "id": "l-pl", "kind": "link", "from": "prompt", "to": "llm" },
+          { "id": "l-la", "kind": "link", "from": "llm", "to": "answer" },
+          { "id": "l-bus", "kind": "link", "points": [[1580, 450], [1580, 545], [630, 545], [630, 630]], "label": "nearest vectors", "labelAt": [1000, 520], "dashed": true }
+        ],
+        "entrance": [],
+        "steps": [
+          { "name": "index", "add": ["lane-index", "handbook", "l-hc", "chunks", "l-cv", "vectors", "l-vi", "index"] },
+          { "name": "query", "add": ["lane-query", "query"] },
+          { "name": "search", "add": ["l-qs", "search", "l-bus"] },
+          { "name": "prompt", "add": ["l-sp", "prompt"] },
+          { "name": "llm", "add": ["l-pl", "llm"] },
+          { "name": "answer", "add": ["l-la", "answer"] }
+        ]
+      },
+      "transition": { "type": "push", "direction": "down" },
+      "notes": {
+        "index": "Offline, once: the handbook is cut into chunks, each chunk becomes a vector, and the vectors are stored in an index. It is rebuilt only when the handbook changes.",
+        "query": "Online, for every question. The question is turned into a vector by the same model.",
+        "search": "The question's vector is compared with the stored vectors, and the closest ones win. The two lanes meet here.",
+        "prompt": "The best passages are copied into a prompt, together with the question and an instruction.",
+        "llm": "The LLM reads the prompt and writes the answer. It does not search your files: it only sees what is in the prompt.",
+        "answer": "The answer comes back with its section, so a person can check it against the handbook."
+      }
+    },
+    {
+      "scene": "scenes/chunks",
+      "title": "Chunks: cut the handbook",
+      "transition": { "type": "zoom", "target": ".piece-handbook" },
+      "notes": {
+        "page": "One long document. Nobody can fit sixty pages in a prompt, and one vector for sixty pages would blur every topic.",
+        "cut": "So we cut it into chunks. Where the cut falls decides what can be found.",
+        "overlap": "Neighbouring chunks share a little text, so a sentence split by a cut still appears whole in one of them.",
+        "chunk": "This is what the search sees: a piece of text with its source. Too big and the answer gets lost; too small and the context is gone."
+      }
+    },
+    {
+      "scene": "scenes/embeddings",
+      "title": "Meaning as position",
+      "transition": { "type": "reveal", "target": ".chunk-panel", "duration": 1.2 },
+      "notes": {
+        "chunks": "Every chunk becomes a vector: a list of numbers. The plane shows only two, so it fits on a slide. Real vectors have hundreds.",
+        "clusters": "Chunks on the same topic end up close together. Closeness is meaning, not shared words.",
+        "question": "The question goes through the same step, and it lands next to section 4.2.",
+        "numbers": "Section 4.2 is [3, 4] and the question is [4, 3]. Next: how to measure how close two of them point."
+      }
+    },
+    {
+      "scene": "scenes/cosine-angle",
+      "title": "Cosine measures direction",
+      "transition": { "type": "wipe" },
+      "notes": {
+        "angle": "The score is the cosine of the angle between two arrows. The question and section 4.2 differ by about 16 degrees: cosine 0.96.",
+        "length": "Length does not count. This longer copy of 4.2 points the same way, so it gets the same score.",
+        "scale": "The score runs from +1, same direction, to −1, opposite. Unrelated text sits near 0. Parking is at a right angle: 0.00."
+      }
+    },
+    {
+      "scene": "scenes/cosine-formula",
+      "title": "The formula, with numbers",
+      "transition": { "type": "zoom", "target": ".arc" },
+      "notes": {
+        "dot": "The dot product multiplies matching numbers and adds them: 4 times 3, plus 3 times 4, is 24.",
+        "lengths": "Each length is Pythagoras on the vector's numbers: 5 and 5. Dividing by them removes the length of the text.",
+        "score": "24 divided by 25 is 0.96. Almost the same direction: that is the score of section 4.2.",
+        "zero": "Parking: 4 times 3, plus 3 times minus 4, is zero. A right angle gives 0, whatever the lengths."
+      }
+    },
+    {
+      "scene": "scenes/retrieval",
+      "title": "Retrieval: the closest few",
+      "transition": { "type": "push", "direction": "left" },
+      "notes": {
+        "compare": "The question is compared with every chunk: one cosine each. The handbook is not read again.",
+        "score": "Each chunk gets a score. Section 4.2 is closest with 0.96; parking is at 0.00.",
+        "top-k": "Retrieval keeps the top k. Here k is 3, and it is a setting you choose. Large indexes use an approximate search instead of comparing every chunk.",
+        "text": "What comes back is text and its section number, not vectors. That text is what the model will read."
+      }
+    },
+    {
+      "scene": "scenes/prompt-answer",
+      "title": "Prompt and answer",
+      "transition": { "type": "reveal", "target": ".topk", "duration": 1.2 },
+      "notes": {
+        "instructions": "The prompt is plain text. The instruction is part of the design: it tells the model to answer only from the passages and to cite them.",
+        "passages": "The passages come from the search, with their sections. The model sees only these.",
+        "llm": "The question joins the prompt, and the whole sheet goes to the LLM. The LLM does not search: it reads what you gave it.",
+        "answer": "It writes the answer one word at a time, each word predicted from the prompt. The source lets you check it against the passage."
+      }
+    },
+    {
+      "scene": "library/pipeline",
+      "title": "One question, end to end",
+      "props": {
+        "title": "One question, end to end",
+        "elements": [
+          { "id": "question", "kind": "text", "text": "“How many weeks of parental leave do we get?”", "x": 160, "y": 380, "size": 56 },
+          { "id": "query", "kind": "piece", "label": "Query", "detail": "[4, 3]", "mono": true, "x": 160, "y": 560, "width": 260 },
+          { "id": "search", "kind": "piece", "label": "Search", "detail": "cosine", "caption": "0.96 · 0.94 · 0.92 · 0.00", "x": 500, "y": 560, "width": 260 },
+          { "id": "prompt", "kind": "piece", "label": "Prompt", "detail": "3 chunks", "mono": true, "x": 840, "y": 560, "width": 260 },
+          { "id": "llm", "kind": "piece", "label": "LLM", "detail": "writes", "x": 1180, "y": 560, "width": 260 },
+          { "id": "answer", "kind": "piece", "label": "Answer", "detail": "16 weeks", "mono": true, "caption": "§4.2", "x": 1520, "y": 560, "width": 300 },
+          { "id": "l-qs", "kind": "link", "from": "query", "to": "search", "label": "[4, 3]", "labelAt": [440, 530] },
+          { "id": "l-sp", "kind": "link", "from": "search", "to": "prompt", "label": "top 3", "labelAt": [780, 530] },
+          { "id": "l-pl", "kind": "link", "from": "prompt", "to": "llm" },
+          { "id": "l-la", "kind": "link", "from": "llm", "to": "answer" }
+        ],
+        "entrance": [],
+        "steps": [
+          { "name": "query", "add": ["question", "query"] },
+          { "name": "search", "add": ["l-qs", "search"] },
+          { "name": "prompt", "add": ["l-sp", "prompt"] },
+          { "name": "llm", "add": ["l-pl", "llm"] },
+          { "name": "answer", "add": ["l-la", "answer"] }
+        ]
+      },
+      "transition": { "type": "cut" },
+      "notes": {
+        "query": "The question, as a vector: [4, 3].",
+        "search": "The vector is compared with every chunk. The best scores are 0.96, 0.94 and 0.92; parking gets 0.00.",
+        "prompt": "The top three chunks go into the prompt, with the instruction and the question.",
+        "llm": "The LLM reads the prompt and writes the answer.",
+        "answer": "Sixteen weeks, from section 4.2. Five steps from question to answer, and each one can be checked."
+      }
+    },
+    {
+      "scene": "library/pipeline",
+      "title": "Where it breaks",
+      "props": {
+        "title": "Where it breaks",
+        "elements": [
+          { "id": "handbook", "kind": "piece", "label": "Handbook", "detail": "60 pages", "x": 160, "y": 290, "width": 340 },
+          { "id": "chunks", "kind": "piece", "label": "Chunks", "detail": "~300 words", "x": 560, "y": 290, "width": 300 },
+          { "id": "l-hc", "kind": "link", "from": "handbook", "to": "chunks" },
+          { "id": "query", "kind": "piece", "label": "Query", "detail": "[4, 3]", "mono": true, "x": 160, "y": 560, "width": 260 },
+          { "id": "search", "kind": "piece", "label": "Search", "detail": "cosine", "x": 500, "y": 560, "width": 260 },
+          { "id": "prompt", "kind": "piece", "label": "Prompt", "detail": "3 chunks", "mono": true, "x": 840, "y": 560, "width": 260 },
+          { "id": "llm", "kind": "piece", "label": "LLM", "detail": "writes", "x": 1180, "y": 560, "width": 260 },
+          { "id": "answer", "kind": "piece", "label": "Answer", "detail": "16 weeks", "mono": true, "x": 1520, "y": 560, "width": 300 },
+          { "id": "l-cs", "kind": "link", "points": [[710, 440], [710, 500], [630, 500], [630, 550]], "dashed": true },
+          { "id": "l-qs", "kind": "link", "from": "query", "to": "search" },
+          { "id": "l-sp", "kind": "link", "from": "search", "to": "prompt" },
+          { "id": "l-pl", "kind": "link", "from": "prompt", "to": "llm" },
+          { "id": "l-la", "kind": "link", "from": "llm", "to": "answer" },
+          { "id": "pin-split", "kind": "pin", "text": ["a cut splits the table", "the 16-week row is lost"], "at": [940, 330], "to": [862, 360] },
+          { "id": "pin-codes", "kind": "pin", "text": ["codes like HR-17", "match poorly"], "at": [520, 830], "to": [630, 712] },
+          { "id": "pin-k", "kind": "pin", "text": ["k = 3 drops the", "16-week passage"], "at": [900, 830], "to": [970, 712] },
+          { "id": "pin-guess", "kind": "pin", "text": ["no passage has it?", "the model answers"], "at": [1300, 960], "to": [1310, 712] }
+        ],
+        "entrance": ["handbook", "chunks", "l-hc", "query", "search", "prompt", "llm", "answer", "l-cs", "l-qs", "l-sp", "l-pl", "l-la"],
+        "steps": [
+          { "name": "split", "add": ["pin-split"] },
+          { "name": "codes", "add": ["pin-codes"] },
+          { "name": "k", "add": ["pin-k"] },
+          { "name": "guess", "add": ["pin-guess"] }
+        ]
+      },
+      "transition": { "type": "push", "direction": "up" },
+      "notes": {
+        "split": "A cut through a table can hide the answer: the 16-week row is split across two chunks.",
+        "codes": "A code such as HR-17 matches poorly by meaning. Exact terms may need keyword search as well.",
+        "k": "With k = 3, the passage with the answer ranks fourth and is dropped. A larger k adds context, and noise.",
+        "guess": "If no passage has the answer, the model may still answer. Allow it to say the answer is not in the handbook."
+      }
+    },
+    {
+      "scene": "scenes/measure",
+      "title": "Measure each stage",
+      "transition": { "type": "wipe" },
+      "notes": {
+        "set": "A small set of questions with known sources is enough to start. Each one has its expected section.",
+        "retrieval": "Eight of ten have the right section in the top 3. If the section is not retrieved, no model can save the answer.",
+        "answer": "Of those eight, seven answers are supported by their passage. A fluent wrong answer looks like a right one.",
+        "fix": "Each failure points at one stage: chunks or k for retrieval, the prompt for answers. Change one, then run the set again."
+      }
+    },
+    {
+      "scene": "scenes/when-to-use",
+      "title": "When to use RAG",
+      "transition": { "type": "push", "direction": "left" },
+      "notes": {
+        "facts": "Use RAG for facts that change, or that need a source. Re-indexing updates the answers without retraining the model.",
+        "style": "Style, format and behaviour need fine-tuning. RAG does not change how the model writes.",
+        "small": "If the text fits in the prompt, paste it. No index needed.",
+        "idea": "Close on the one idea: RAG finds the passages closest to the question, by cosine, and hands them to the model."
+      }
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+<!--
+  cosine-formula — cos θ = (q · a) / (‖q‖ · ‖a‖), worked by hand. The question q = (4, 3) against chunk
+  4.2, a = (3, 4): 24 / (5 · 5) = 0.96. Parking, (3, −4): the dot product is 0, so the score is 0.00.
+  Entered from the arc of cosine-angle (zoom target .arc).
+-->
+<template>
+  <style>
+    .mono72 { font-family: var(--font-code); font-size: 72px; font-weight: 700; letter-spacing: -0.02em; }
+    .mono56 { font-family: var(--font-code); font-size: 56px; font-weight: 400; letter-spacing: -0.02em; }
+    .hot { fill: var(--accent); }
+    .muted { fill: var(--muted); }
+  </style>
+</template>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { text, canvas, addStyles, writeIn, block } = window.sceneKit;
+
+    registerScene({
+      id: "cosine-formula",
+      props: {},
+      steps: ["dot", "lengths", "score", "zero"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "The formula, with numbers", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // the formula stays on screen for all the steps
+        writeIn(tl, text(stage, "cos θ = (q · a) / (‖q‖ · ‖a‖)", { class: "mono72", x: 160, y: 300 }), 0.4, 0.8);
+
+        // dot: multiply matching numbers, then add
+        let t = tl.duration();
+        writeIn(tl, text(stage, "q · a = 4·3 + 3·4 = 12 + 12 = 24", { class: "mono56", x: 160, y: 400 }), t, 0.8);
+        writeIn(tl, text(stage, "multiply matching numbers, then add", { class: "t40 muted", x: 160, y: 460 }), t + 0.6, 0.6);
+        tl.addLabel("dot");
+
+        // lengths: Pythagoras on each vector
+        t = tl.duration();
+        writeIn(tl, text(stage, "‖q‖ = √(4² + 3²) = 5", { class: "mono56", x: 160, y: 560 }), t, 0.7);
+        writeIn(tl, text(stage, "‖a‖ = √(3² + 4²) = 5", { class: "mono56", x: 160, y: 630 }), t + 0.5, 0.7);
+        writeIn(tl, text(stage, "each length is Pythagoras on its own numbers", { class: "t40 muted", x: 160, y: 690 }), t + 1.0, 0.6);
+        tl.addLabel("lengths");
+
+        // score: the dot product over the product of the lengths
+        t = tl.duration();
+        writeIn(tl, text(stage, "cos θ = 24 / (5 · 5) = 0.96", { class: "mono72", x: 160, y: 800 }), t, 0.9);
+        const score = text(stage, "almost the same direction", { class: "t40 hot", x: 160, y: 860 });
+        writeIn(tl, score, t + 0.8, 0.6);
+        tl.addLabel("score");
+
+        // zero: parking's arrow is at a right angle to the question
+        t = tl.duration();
+        writeIn(tl, text(stage, "parking: 4·3 + 3·(−4) = 0, so cos θ = 0.00", { class: "mono56", x: 160, y: 950 }), t, 0.9);
+        writeIn(tl, text(stage, "a right angle is unrelated, whatever the lengths", { class: "t40 muted", x: 160, y: 1010 }), t + 0.8, 0.6);
+        tl.addLabel("zero");
+
+        return tl;
+      },
+    });
+  })();
+</script>
