@@ -1,0 +1,168 @@
+<!--
+  first-render — the first `/explicador:explain login`: the tool calls on the left, and on the right
+  the five checks render_scene makes in order (parse, refs, warnings, save, publish).
+  The two warnings paraphrase real messages from server/src/rules.ts.
+-->
+<template>
+  <style>
+    .call { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .pill rect { stroke: none; }
+    .pill text { font-family: var(--font-code); font-size: 40px; font-weight: 700; fill: var(--paper); letter-spacing: -0.03em; }
+    .pill--block rect { fill: var(--block); }
+    .pill--ok rect { fill: var(--ok); }
+    .pill--warn rect { fill: var(--warn); }
+    .pill--warn text { fill: var(--ink); }
+    .bubble { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .bubble-text { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .gate { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .gate-num { font-size: 40px; font-weight: 700; fill: var(--paper); }
+    .gate-badge { fill: var(--ink); }
+    .gate-label { font-size: 40px; font-weight: 700; fill: var(--ink); }
+    .gate-label--mono { font-family: var(--font-code); font-weight: 400; letter-spacing: -0.03em; }
+    .gate--ok { fill: none; stroke: var(--ok); stroke-width: 7; }
+    .gate--warn { fill: none; stroke: var(--warn); stroke-width: 7; }
+    .lamp { fill: var(--grid); }
+    .lamp--ok { fill: var(--ok); }
+    .lamp--warn { fill: var(--warn); }
+    .rail { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; }
+    .warn-title { font-size: 40px; font-weight: 700; fill: var(--ink); }
+    .warn-text { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .warn-mark { fill: var(--warn); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const GATES = [
+      { label: "parsea el EXL" },
+      { label: "cada ref existe" },
+      { label: "calcula avisos" },
+      { label: "guarda login.json + SHA-256", className: "gate-4" },
+      { label: "publica por SSE" },
+    ];
+    const GATE = { x: 1040, y: 290, width: 784, height: 112, gap: 26 };
+
+    registerScene({
+      id: "first-render",
+      props: {},
+      steps: ["missing", "plan", "parsea", "avisos", "publica"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        const headline = block(root, "La primera vez", { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.6);
+
+        // missing
+        const call1 = text(stage, 'show_scene("login")', { class: "call", x: 160, y: 330 });
+        const missing = pill(stage, "missing", "block", 640, 330);
+        writeIn(tl, call1, 0.3, 0.5);
+        tl.from(missing, { scale: 1.4, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, 0.8);
+        tl.addLabel("missing");
+
+        // plan
+        let at = tl.duration();
+        const call2 = text(stage, "ensure_index", { class: "call", x: 160, y: 430 });
+        const index = pill(stage, ".explicador/index/", "ok", 470, 430);
+        const bubble = svg("rect", { class: "bubble", x: 160, y: 480, width: 760, height: 100, rx: 50 }, stage);
+        const ask = text(stage, "¿Audiencia? ¿Longitud? ¿Foco?", { class: "bubble-text", x: 210, y: 544 });
+        const ok = pill(stage, "plan · OK", "ok", 470, 654);
+        const okLabel = text(stage, "tú apruebas", { class: "bubble-text", x: 160, y: 654 });
+        writeIn(tl, call2, at, 0.4);
+        tl.from(index, { scale: 1.4, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at + 0.35);
+        tl.from(bubble, { scale: 0, transformOrigin: "10% 50%", duration: 0.45, ease: "expo.out" }, at + 0.6);
+        writeIn(tl, ask, at + 0.8, 0.45);
+        writeIn(tl, okLabel, at + 1.1, 0.35);
+        tl.from(ok, { scale: 1.4, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at + 1.2);
+        tl.addLabel("plan");
+
+        // the gates are drawn with render_scene, then light one by one
+        at = tl.duration();
+        const call3 = text(stage, "render_scene(exl)", { class: "call", x: 160, y: 760 });
+        writeIn(tl, call3, at, 0.45);
+        const gates = GATES.map((spec, i) => drawGate(stage, spec, i));
+        gates.forEach((gate, i) => {
+          tl.from(gate.rect, { drawSVG: 0, fillOpacity: 0, duration: 0.45, ease: "power2.inOut" }, at + 0.2 + i * 0.08);
+          tl.from([gate.badge, gate.num, gate.base], { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, at + 0.4 + i * 0.08);
+          writeIn(tl, gate.label, at + 0.45 + i * 0.08, 0.35);
+        });
+        const railTop = GATE.y + GATE.height / 2;
+        const rail = svg("path", { class: "rail", d: `M${GATE.x - 40},${railTop} V${gateY(4) + GATE.height / 2}` }, stage);
+        gsap.set(rail, { drawSVG: "0% 0%" });
+        // A gate lights by fading in its coloured outline and lamp over the ink ones.
+        const light = (gate, tone, when) => {
+          tl.to([gate.lit[tone].outline, gate.lit[tone].lamp], { opacity: 1, duration: 0.3, ease: "power2.out" }, when);
+        };
+        const railTo = (i, when) => tl.to(rail, { drawSVG: `0% ${(i / 4) * 100}%`, duration: 0.35, ease: "power2.inOut" }, when);
+        light(gates[0], "ok", at + 1.1);
+        railTo(1, at + 1.2);
+        light(gates[1], "ok", at + 1.45);
+        tl.addLabel("parsea");
+
+        // avisos: gate 3 turns amber; two real warnings, paraphrased
+        at = tl.duration();
+        railTo(2, at);
+        light(gates[2], "warn", at + 0.3);
+        const warnTitle = text(stage, "Avisos: no bloquean, pero se corrigen", { class: "warn-title", x: 160, y: 850 });
+        const warnings = [
+          "«salt» aparece antes de su <concept>",
+          "sin <quiz>: nadie predice el check",
+        ].map((line, i) => {
+          const g = svg("g", {}, stage);
+          svg("rect", { class: "warn-mark", x: 160, y: 884 + i * 60, width: 24, height: 24, rx: 5 }, g);
+          text(g, line, { class: "warn-text", x: 204, y: 908 + i * 60 });
+          return g;
+        });
+        writeIn(tl, warnTitle, at + 0.4, 0.45);
+        warnings.forEach((g, i) => writeIn(tl, g, at + 0.7 + i * 0.15, 0.45));
+        tl.addLabel("avisos");
+
+        // publica: gates 4 and 5 pass; the scene is saved and published
+        at = tl.duration();
+        railTo(3, at);
+        light(gates[3], "ok", at + 0.3);
+        railTo(4, at + 0.45);
+        light(gates[4], "ok", at + 0.75);
+        const done = pill(stage, "publicada", "ok", 640, 760);
+        tl.from(done, { scale: 1.4, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at + 1.0);
+        tl.addLabel("publica");
+        return tl;
+      },
+    });
+
+    function gateY(i) {
+      return GATE.y + i * (GATE.height + GATE.gap);
+    }
+
+    function drawGate(stage, spec, i) {
+      const y = gateY(i);
+      const g = svg("g", { class: spec.className ?? "" }, stage);
+      const rect = svg("rect", { class: "gate", x: GATE.x, y, width: GATE.width, height: GATE.height, rx: 14 }, g);
+      const cy = y + GATE.height / 2;
+      const badge = svg("circle", { class: "gate-badge", cx: GATE.x + 46, cy, r: 28 }, g);
+      const num = text(g, String(i + 1), { class: "gate-num mid", x: GATE.x + 46, y: cy + 2 });
+      const label = text(g, spec.label, { class: "gate-label", x: GATE.x + 96, y: cy + 14 });
+      const lampAt = { cx: GATE.x + GATE.width - 40, cy, r: 18 };
+      const base = svg("circle", { class: "lamp", ...lampAt }, g);
+      const lit = {};
+      ["ok", "warn"].forEach((tone) => {
+        const outline = svg("rect", { class: `gate--${tone}`, x: GATE.x, y, width: GATE.width, height: GATE.height, rx: 14 }, g);
+        const lamp = svg("circle", { class: `lamp lamp--${tone}`, ...lampAt }, g);
+        gsap.set([outline, lamp], { opacity: 0 });
+        lit[tone] = { outline, lamp };
+      });
+      return { g, rect, badge, num, label, lit, base };
+    }
+
+    // A filled pill with mono text; x is its left edge, baseline the text baseline it shares with its row.
+    function pill(stage, label, tone, x, baseline) {
+      const g = svg("g", { class: `pill pill--${tone}` }, stage);
+      const rect = svg("rect", { x, y: baseline - 43, height: 60, rx: 30 }, g);
+      const t = text(g, label, { x: x + 24, y: baseline });
+      rect.setAttribute("width", t.getComputedTextLength() + 48);
+      return g;
+    }
+  })();
+</script>

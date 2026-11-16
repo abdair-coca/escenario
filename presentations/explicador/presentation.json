@@ -1,0 +1,199 @@
+{
+  "title": "Explicador: cómo funciona por dentro",
+  "lang": "es",
+  "theme": "theme.css",
+  "scenes": [
+    {
+      "scene": "scenes/ask-to-scene",
+      "title": "Un diagrama en vez de un párrafo",
+      "transition": { "type": "cut" },
+      "notes": {
+        "pregunta": "Le preguntamos a Claude cómo funciona el login de la tienda de ejemplo.",
+        "parrafo": "Lo normal: un párrafo. Correcto, pero hay que imaginarse el dibujo.",
+        "escena": "Explicador responde con esto: una escena animada en una pestaña local. Fíjense en password.js: va a salir en toda la charla.",
+        "plugin": "Es un plugin de Claude Code. Con notebooks hace lecciones con los números reales; hoy nos quedamos con el código."
+      }
+    },
+    {
+      "scene": "library/pipeline",
+      "title": "Las piezas",
+      "props": {
+        "title": "Las piezas",
+        "elements": [
+          { "id": "claude", "kind": "piece", "label": "Claude", "detail": "skill explicador", "caption": "guionista", "x": 96, "y": 250, "width": 380 },
+          { "id": "exl", "kind": "piece", "label": "EXL", "detail": "sin JS", "caption": "guion", "x": 556, "y": 250, "width": 240, "shape": "sheet" },
+          { "id": "servidor", "kind": "piece", "label": "Servidor MCP", "detail": "8 herramientas", "caption": "productor", "x": 876, "y": 250, "width": 440 },
+          { "id": "folder", "kind": "piece", "label": ".explicador/", "detail": "en tu proyecto", "x": 876, "y": 660, "width": 440, "shape": "folder" },
+          { "id": "puente", "kind": "piece", "label": "Puente HTTP", "detail": "127.0.0.1 · token", "x": 1396, "y": 250, "width": 428 },
+          { "id": "visor", "kind": "piece", "label": "Visor React", "detail": "ELK · GSAP · KaTeX", "caption": "proyector", "x": 1396, "y": 660, "width": 428 },
+          { "id": "monitor", "kind": "piece", "label": "Monitor", "detail": "stdout → Claude", "x": 96, "y": 660, "width": 380 },
+          { "id": "l-exl", "kind": "link", "from": "claude", "to": "exl" },
+          { "id": "l-servidor", "kind": "link", "from": "exl", "to": "servidor" },
+          { "id": "l-folder", "kind": "link", "points": [[1240, 400], [1240, 650]], "dashed": true },
+          { "id": "l-puente", "kind": "link", "from": "servidor", "to": "puente" },
+          { "id": "l-visor", "kind": "link", "from": "puente", "to": "visor" },
+          { "id": "l-vuelta", "kind": "link", "points": [[1396, 735], [1356, 735], [1356, 940], [286, 940], [286, 820]], "label": "clics y preguntas" },
+          { "id": "l-claude", "kind": "link", "points": [[140, 660], [140, 410]] }
+        ],
+        "entrance": [],
+        "steps": [
+          { "name": "claude", "add": ["claude"] },
+          { "name": "exl", "add": ["l-exl", "exl"] },
+          { "name": "servidor", "add": ["l-servidor", "servidor", "l-folder", "folder"] },
+          { "name": "puente", "add": ["l-puente", "puente"] },
+          { "name": "visor", "add": ["l-visor", "visor"] },
+          { "name": "monitor", "add": ["l-vuelta", "monitor", "l-claude"] }
+        ]
+      },
+      "transition": { "type": "push", "direction": "down" },
+      "notes": {
+        "claude": "Debajo de esa pestaña hay cinco piezas. Claude, guiado por el skill explicador, es el guionista.",
+        "exl": "Escribe un guion en EXL: un catálogo cerrado de etiquetas, sin JavaScript ni HTML.",
+        "servidor": "El servidor MCP es el productor: valida, cachea, copia código y publica. Lo que guarda vive en .explicador/ dentro de tu proyecto.",
+        "puente": "Publica por SSE a un puente HTTP en 127.0.0.1, con un token nuevo en cada arranque.",
+        "visor": "El visor React es el proyector: calcula el layout con ELK y anima con GSAP.",
+        "monitor": "Y hay vuelta: los clics y las preguntas llegan a Claude a través del Monitor, sin flags de lanzamiento."
+      }
+    },
+    {
+      "scene": "scenes/refs-not-code",
+      "title": "Claude no escribe el código que ves",
+      "transition": { "type": "zoom", "target": ".piece-exl" },
+      "notes": {
+        "exl": "Entremos en el guion. Esto es EXL real, de la escena del login.",
+        "ref": "El código no está aquí. Hay una referencia: un archivo y un rango de líneas.",
+        "copia": "Al mostrar la escena, el servidor copia esas líneas del archivo real. Lo que ves en el visor es tu código, no el del modelo.",
+        "inventada": "Si el modelo inventa un rango, por ejemplo 40 a 45 en un archivo de 19 líneas, se bloquea. El código inventado no llega al visor.",
+        "catalogo": "Y nada fuera del catálogo: un <script> se rechaza en el parser. Así cualquier modelo produce el mismo tipo de salida."
+      }
+    },
+    {
+      "scene": "scenes/first-render",
+      "title": "La primera vez",
+      "transition": { "type": "push", "direction": "left" },
+      "notes": {
+        "missing": "Primera vez que pedimos el login. show_scene no encuentra nada en caché: missing.",
+        "plan": "Claude crea el índice y lo lee antes de abrir código. Te pregunta audiencia, longitud y foco, te enseña el plan y espera tu OK.",
+        "parsea": "Escribe el EXL y llama render_scene. Primero se parsea y se comprueba que cada ref exista: un error aquí bloquea y no se guarda nada.",
+        "avisos": "Luego vienen los avisos. No bloquean, pero Claude los tiene que corregir: términos antes de su tarjeta, falta de quiz…",
+        "publica": "Se guarda login.json con el hash de cada archivo citado y se publica por SSE. Claude responde en tres a seis frases con la URL."
+      }
+    },
+    {
+      "scene": "scenes/cache-states",
+      "title": "La caché: fresh, stale, missing",
+      "transition": { "type": "zoom", "target": ".gate-4" },
+      "notes": {
+        "hashes": "Dentro de login.json: un SHA-256 por cada archivo que la escena cita.",
+        "fresh": "La segunda vez, los hashes coinciden con el disco: fresh. Claude no lee código; solo escribe una respuesta corta.",
+        "stale": "Si alguien cambia la línea 17 de password.js, su hash cambia: stale. Solo ese archivo vuelve a Claude.",
+        "codigo": "Y eso es todo lo que decide la caché: missing, fresh o stale, con la lista de cambios."
+      }
+    },
+    {
+      "scene": "library/pipeline",
+      "title": "Un clic vuelve a Claude",
+      "props": {
+        "title": "Un clic vuelve a Claude",
+        "elements": [
+          { "id": "visor", "kind": "piece", "label": "Visor", "detail": "caja «Scrypt key»", "x": 700, "y": 300, "width": 520 },
+          { "id": "cursor", "kind": "cursor", "at": [1120, 400] },
+          { "id": "panel", "kind": "piece", "label": "Panel local", "detail": "sin Claude · gratis", "tone": "ok", "x": 1360, "y": 300, "width": 464 },
+          { "id": "puente", "kind": "piece", "label": "Puente", "detail": "escribe 1 línea", "x": 1360, "y": 640, "width": 464 },
+          { "id": "monitor", "kind": "piece", "label": "Monitor", "detail": "la imprime en stdout", "x": 700, "y": 640, "width": 520 },
+          { "id": "claude", "kind": "piece", "label": "Claude", "detail": "vía Claude Code", "x": 96, "y": 640, "width": 460 },
+          { "id": "l-panel", "kind": "link", "from": "visor", "to": "panel" },
+          { "id": "l-puente", "kind": "link", "from": "panel", "to": "puente", "label": "POST /api/click", "labelAt": [1180, 556] },
+          { "id": "l-monitor", "kind": "link", "from": "puente", "to": "monitor" },
+          { "id": "l-claude", "kind": "link", "from": "monitor", "to": "claude" },
+          { "id": "l-visor", "kind": "link", "points": [[326, 640], [326, 375], [690, 375]], "label": "answer_question", "labelAt": [334, 440] },
+          { "id": "p-clic", "kind": "packet", "on": "l-puente", "text": "clic", "stop": 0.5 },
+          { "id": "p-respuesta", "kind": "packet", "on": "l-visor", "text": "respuesta", "stop": 0.75 },
+          { "id": "pin-p", "kind": "pin", "text": ["solo en sesión interactiva:", "no funciona con claude -p"], "at": [760, 900], "to": [960, 800] }
+        ],
+        "entrance": [],
+        "steps": [
+          { "name": "clic", "add": ["visor", "cursor"] },
+          { "name": "panel", "add": ["l-panel", "panel"] },
+          { "name": "profundo", "add": ["l-puente", "puente", "p-clic"] },
+          { "name": "monitor", "add": ["l-monitor", "monitor", "l-claude", "claude"] },
+          { "name": "respuesta", "add": ["l-visor", "p-respuesta", "pin-p"] }
+        ]
+      },
+      "transition": { "type": "push", "direction": "left" },
+      "notes": {
+        "clic": "En el visor hacemos clic en la caja «Scrypt key».",
+        "panel": "Se abre un panel local con la descripción, el código clave y un campo de preguntas. No usa a Claude: es gratis.",
+        "profundo": "Si pulsas «Ir más profundo» o escribes una pregunta, el visor hace un POST al puente, que escribe una línea en el stream de clics.",
+        "monitor": "El Monitor, un proceso que Claude Code arranca con la sesión, imprime esa línea y Claude Code se la entrega a Claude.",
+        "respuesta": "Claude responde con answer_question: texto y líneas citadas que copia el servidor. Ojo: los monitores no corren con claude -p."
+      }
+    },
+    {
+      "scene": "scenes/local-only",
+      "title": "Todo se queda en 127.0.0.1",
+      "transition": { "type": "reveal", "target": ".piece-puente", "duration": 1.2 },
+      "notes": {
+        "frontera": "Abramos el puente. Todo pasa en tu máquina; lo único que sale es lo que Claude Code ya envía para leer tu código.",
+        "token": "El puente escucha en 127.0.0.1 y cada petición exige el token de ese arranque. Los POST deben venir de la propia página y se comprueba el Host contra DNS rebinding.",
+        "archivos": "El visor solo sirve archivos del proyecto: nada de .env, .git, carpetas de fuera ni enlaces que salgan.",
+        "export": "Y la escena exportada es un HTML único con CSP estricta que no hace ninguna petición de red."
+      }
+    },
+    {
+      "scene": "scenes/quality",
+      "title": "Cómo sabemos que funciona",
+      "transition": { "type": "wipe" },
+      "notes": {
+        "pruebas": "Cambiamos de tema: cómo se mide. Muchas pruebas deterministas. Firefox y WebKit solo corren en CI.",
+        "bench": "El bench de comprensión: Haiku pasa de 2,4 a 4,9 sobre 5 cuando tiene la escena. En F30 llegó a 5. Una sola corrida por condición.",
+        "punto-ciego": "Pero el bench solo mira que el texto tenga los hechos: un diagrama confuso también saca 5 sobre 5.",
+        "personas": "El protocolo con personas existe en docs/prueba-humana.md. Todavía no hay resultados en el repo."
+      }
+    },
+    {
+      "scene": "library/pipeline",
+      "title": "Riesgos y decisiones abiertas",
+      "props": {
+        "title": "Riesgos y decisiones abiertas",
+        "elements": [
+          { "id": "claude", "kind": "piece", "label": "Claude", "detail": "escribe la escena", "x": 96, "y": 330, "width": 400 },
+          { "id": "servidor", "kind": "piece", "label": "Servidor MCP", "detail": "valida · cachea", "x": 676, "y": 330, "width": 520 },
+          { "id": "visor", "kind": "piece", "label": "Visor React", "detail": "en el navegador", "x": 1376, "y": 330, "width": 448 },
+          { "id": "monitor", "kind": "piece", "label": "Monitor", "detail": "clics → Claude", "x": 96, "y": 700, "width": 400 },
+          { "id": "f11", "kind": "piece", "label": "F11 · celdas", "detail": "arranca procesos", "tone": "block", "dashed": true, "x": 860, "y": 700, "width": 480 },
+          { "id": "l-servidor", "kind": "link", "from": "claude", "to": "servidor" },
+          { "id": "l-visor", "kind": "link", "from": "servidor", "to": "visor" },
+          { "id": "l-vuelta", "kind": "link", "points": [[1420, 480], [1420, 930], [296, 930], [296, 860]] },
+          { "id": "l-claude", "kind": "link", "points": [[296, 700], [296, 490]] },
+          { "id": "l-f11", "kind": "link", "points": [[1100, 480], [1100, 690]], "dashed": true },
+          { "id": "pin-plataforma", "kind": "pin", "text": ["todo corre dentro de Claude Code"], "at": [200, 262], "to": [180, 300], "bracket": [96, 1824, 300] },
+          { "id": "pin-monitor", "kind": "pin", "text": ["clave", "experimental", "del manifest"], "at": [580, 760], "to": [496, 775] },
+          { "id": "pin-modelo", "kind": "pin", "text": ["calidad = la del modelo", "los evals no miden claridad"], "at": [360, 570], "to": [440, 480] },
+          { "id": "pin-visor", "kind": "pin", "text": ["solo Chromium", "y Windows;", "UI en inglés"], "at": [1474, 570], "to": [1600, 480] },
+          { "id": "d-licencia", "kind": "check", "text": "Licencia: hoy no hay ninguna", "x": 200, "y": 360 },
+          { "id": "d-publico", "kind": "check", "text": "Público: ¿desarrolladores o docentes?", "x": 200, "y": 450 },
+          { "id": "d-distribucion", "kind": "check", "text": "Distribución: ¿marketplace o checkout?", "x": 200, "y": 540 },
+          { "id": "d-negocio", "kind": "check", "text": "Modelo de negocio sobre Claude Code", "x": 200, "y": 630 },
+          { "id": "idea", "kind": "text", "size": 56, "x": 160, "y": 730, "width": 1600, "text": "Claude escribe un guion con referencias, no código; el servidor solo deja pasar lo que existe en tus archivos y lo reutiliza mientras no cambien." }
+        ],
+        "entrance": ["claude", "l-servidor", "servidor", "l-visor", "visor", "l-vuelta", "monitor", "l-claude"],
+        "steps": [
+          { "name": "plataforma", "add": ["pin-plataforma", "pin-monitor"] },
+          { "name": "modelo", "add": ["pin-modelo"] },
+          { "name": "madurez", "add": ["pin-visor"] },
+          { "name": "f11", "add": ["l-f11", "f11"] },
+          { "name": "decisiones", "clear": true, "add": ["d-licencia", "d-publico", "d-distribucion", "d-negocio", "idea"] }
+        ]
+      },
+      "transition": { "type": "push", "direction": "up" },
+      "notes": {
+        "plataforma": "Volvemos a las piezas, ahora con los riesgos encima. Todo corre dentro de Claude Code, y el canal de clics usa una clave experimental del manifest: si cambian los plugins, cambiamos nosotros.",
+        "modelo": "La calidad sube o baja con el modelo que escribe la escena, y los evals no miden claridad.",
+        "madurez": "Está en beta: solo se probó en Chromium sobre Windows real y la interfaz del visor está solo en inglés.",
+        "f11": "F11, ejecutar celdas de notebook, sigue pendiente. Arranca procesos en tu máquina: necesita su propio diseño de seguridad antes de empezar.",
+        "decisiones": "Y cuatro decisiones abiertas: licencia, público, distribución y modelo de negocio. Me quedo con la idea: guion con referencias, servidor que solo deja pasar lo real, y caché por hash."
+      }
+    }
+  ]
+}

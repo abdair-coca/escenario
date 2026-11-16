@@ -1,0 +1,127 @@
+<!--
+  quality — how Explicador is measured: deterministic tests as bars, the comprehension bench as two
+  columns, its blind spot (a tangled diagram still scores 5/5) and the human test with no results yet.
+  Figures from the Explicador repo's plan (F22, F30).
+-->
+<template>
+  <style>
+    .bar { fill: var(--ink); }
+    .bar-label { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .bar-value { font-size: 56px; font-weight: 700; fill: var(--ink); font-variant-numeric: tabular-nums; }
+    .col { fill: var(--muted); }
+    .col--with { fill: var(--accent); }
+    .col-value { font-size: 56px; font-weight: 700; fill: var(--ink); }
+    .col-label { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .axis { stroke: var(--ink); stroke-width: 4; }
+    .section { font-size: 40px; font-weight: 700; fill: var(--ink); }
+    .tangle { fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: round; }
+    .tangle-box { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+    .score { font-size: 72px; font-weight: 700; fill: var(--warn); }
+    .say { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .doc { fill: var(--paper); stroke: var(--ink); stroke-width: 5; stroke-linejoin: round; }
+    .empty { fill: none; stroke: var(--block); stroke-width: 5; stroke-dasharray: 16 10; }
+    .empty-text { font-size: 40px; font-weight: 700; fill: var(--block); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const TESTS = [
+      { label: "pruebas del servidor", value: 304 },
+      { label: "pruebas del visor", value: 204 },
+      { label: "pruebas en Chromium", value: 61 },
+      { label: "evals deterministas", value: 50 },
+    ];
+    const BAR = { x: 160, y: 300, max: 560, row: 128 };
+    const COLS = { left: 1040, baseline: 800, height: 360, width: 130, gap: 100 };
+
+    registerScene({
+      id: "quality",
+      props: {},
+      steps: ["pruebas", "bench", "punto-ciego", "personas"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        const headline = block(root, "Cómo sabemos que funciona", { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.6);
+
+        // pruebas
+        const top = Math.max(...TESTS.map((t) => t.value));
+        TESTS.forEach((test, i) => {
+          const y = BAR.y + i * BAR.row;
+          const width = (test.value / top) * BAR.max;
+          const label = text(stage, test.label, { class: "bar-label", x: BAR.x, y });
+          const bar = svg("rect", { class: "bar", x: BAR.x, y: y + 18, width, height: 40, rx: 6 }, stage);
+          const value = text(stage, String(test.value), { class: "bar-value", x: BAR.x + width + 20, y: y + 58 });
+          const t = 0.3 + i * 0.12;
+          writeIn(tl, label, t, 0.4);
+          tl.from(bar, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.6, ease: "expo.out" }, t + 0.15);
+          const counter = { n: 0 };
+          tl.to(counter, { n: test.value, duration: 0.6, ease: "expo.out", onUpdate: () => (value.textContent = String(Math.round(counter.n))) }, t + 0.15);
+          tl.from(value, { x: -width, duration: 0.6, ease: "expo.out" }, t + 0.15);
+        });
+        tl.addLabel("pruebas");
+
+        // bench: Haiku answers questions with and without the scene
+        let at = tl.duration();
+        const section = text(stage, "Haiku responde sobre el código", { class: "section", x: 1000, y: 300 });
+        const axis = svg("line", { class: "axis", x1: 1000, y1: COLS.baseline, x2: 1440, y2: COLS.baseline }, stage);
+        const columns = [
+          { value: 2.4, label: "sin escena", className: "col" },
+          { value: 4.9, label: "con escena", className: "col col--with" },
+        ].map((spec, i) => {
+          const x = COLS.left + i * (COLS.width + COLS.gap);
+          const height = (spec.value / 5) * COLS.height;
+          const rect = svg("rect", { class: spec.className, x, y: COLS.baseline - height, width: COLS.width, height }, stage);
+          const value = text(stage, `${String(spec.value).replace(".", ",")}/5`, { class: "col-value mid", x: x + COLS.width / 2, y: COLS.baseline - height - 40 });
+          const label = text(stage, spec.label, { class: "col-label mid", x: x + COLS.width / 2, y: COLS.baseline + 40 });
+          return { rect, value, label };
+        });
+        const note = text(stage, "F22 · una corrida por condición", { class: "say", x: 1000, y: 920 });
+        writeIn(tl, section, at, 0.45);
+        tl.from(axis, { drawSVG: 0, fillOpacity: 0, duration: 0.4, ease: "power2.out" }, at + 0.2);
+        columns.forEach((col, i) => {
+          const t = at + 0.4 + i * 0.35;
+          tl.from(col.rect, { scaleY: 0, transformOrigin: "50% 100%", duration: 0.6, ease: "expo.out" }, t);
+          writeIn(tl, col.label, t + 0.1, 0.35);
+          tl.from(col.value, { y: 40, opacity: 0, duration: 0.45, ease: "expo.out" }, t + 0.3);
+        });
+        writeIn(tl, note, at + 1.2, 0.45);
+        tl.addLabel("bench");
+
+        // punto-ciego: a tangled diagram with the facts in its text still gets 5/5
+        at = tl.duration();
+        const tangleBox = svg("rect", { class: "tangle-box", x: 1480, y: 420, width: 200, height: 150, rx: 12 }, stage);
+        const tangle = svg("path", {
+          class: "tangle",
+          d: "M1500,450 L1660,545 L1515,545 L1650,445 L1565,505 L1655,500 L1505,470 L1600,550",
+        }, stage);
+        const score = text(stage, "5/5", { class: "score", x: 1700, y: 520 });
+        const why = svg("g", {}, stage);
+        ["un diagrama", "confuso también:", "solo mide que", "el texto tenga", "los hechos"].forEach((line, i) =>
+          text(why, line, { class: "say", x: 1480, y: 640 + i * 52 }));
+        tl.from(tangleBox, { drawSVG: 0, fillOpacity: 0, duration: 0.4, ease: "power2.inOut" }, at + 0.2);
+        tl.from(tangle, { drawSVG: 0, fillOpacity: 0, duration: 0.8, ease: "power2.inOut" }, at + 0.4);
+        tl.from(score, { scale: 1.4, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at + 1.0);
+        writeIn(tl, why, at + 1.2, 0.5);
+        tl.addLabel("punto-ciego");
+
+        // personas: the protocol with people exists; its results box is empty
+        at = tl.duration();
+        const doc = svg("path", { class: "doc", d: "M160,830 H240 L280,870 V980 H160 Z M240,830 V870 H280" }, stage);
+        const docLabel = text(stage, "docs/prueba-humana.md", { class: "bar-label", x: 310, y: 880 });
+        const empty = svg("rect", { class: "empty", x: 310, y: 910, width: 420, height: 76, rx: 12 }, stage);
+        const emptyText = text(stage, "sin resultados", { class: "empty-text mid", x: 520, y: 950 });
+        tl.from(doc, { drawSVG: 0, fillOpacity: 0, duration: 0.5, ease: "power2.inOut" }, at);
+        writeIn(tl, docLabel, at + 0.3, 0.45);
+        tl.from(empty, { opacity: 0, scale: 0.9, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at + 0.6);
+        writeIn(tl, emptyText, at + 0.8, 0.4);
+        tl.addLabel("personas");
+        return tl;
+      },
+    });
+  })();
+</script>

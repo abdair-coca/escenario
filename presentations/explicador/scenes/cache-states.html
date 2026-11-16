@@ -1,0 +1,135 @@
+<!--
+  cache-states — the cached login.json keeps one SHA-256 per cited file. Same hashes: fresh, nothing
+  is read. One file edited: stale, only that file goes back to Claude. Then the real Lookup type
+  (server/src/cache/index.ts:25-28). Hashes are the real ones of examples/shop, before and after
+  changing KEY_LENGTH to 32 on line 17 of password.js.
+-->
+<template>
+  <style>
+    .card { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .card-title { font-family: var(--font-code); font-size: 40px; font-weight: 700; fill: var(--ink); letter-spacing: -0.03em; }
+    .rule { stroke: var(--ink); stroke-width: 3; }
+    .path { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .hash { font-family: var(--font-code); font-size: 40px; fill: var(--muted); letter-spacing: -0.03em; }
+    .hash--new { fill: var(--warn); font-weight: 700; }
+    .hash-bg { fill: var(--paper); }
+    .lamp { fill: var(--grid); }
+    .lamp--ok { fill: var(--ok); }
+    .lamp--warn { fill: var(--warn); }
+    .status { font-family: var(--font-code); font-size: 72px; font-weight: 700; }
+    .status--ok { fill: var(--ok); }
+    .status--warn { fill: var(--warn); }
+    .say { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .say--mono { font-family: var(--font-code); font-weight: 400; letter-spacing: -0.03em; }
+    .edit { fill: var(--warn); }
+    .code__lit { position: absolute; border-radius: 8px; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const { codePanel } = window;
+    const FILES = [
+      { path: "src/auth/password.js", hash: "e77ceb6a…", edited: "b37d5cc4…" },
+      { path: "src/api/auth-routes.js", hash: "d744bdd9…" },
+    ];
+    const CARD = { x: 160, y: 250, width: 1600, height: 300 };
+    const ROW_Y = [400, 480];
+    const LOOKUP = [
+      "export type Lookup =",
+      "  | { status: 'missing'; key: string }",
+      "  | { status: 'fresh'; scene: CachedScene }",
+      "  | { status: 'stale'; scene: CachedScene; changes: FileChange[] };",
+    ];
+    // Colour of each status word in the Lookup type, by line.
+    const LIT = [null, "var(--block)", "var(--ok)", "var(--warn)"];
+
+    registerScene({
+      id: "cache-states",
+      props: {},
+      steps: ["hashes", "fresh", "stale", "codigo"],
+      build(root, props, gsap) {
+        addStyles(root);
+        addStyles(root, codePanel.CSS);
+        const stage = canvas(root);
+        const code = codePanel.render(root, LOOKUP, { x: 200, y: 780, lang: "js", lineHeight: 58 });
+        const over = canvas(root);
+        gsap.set(code.lineEls, { clipPath: "inset(0 100% 0 0)" });
+        const tl = gsap.timeline();
+        const headline = block(root, "La caché: fresh, stale, missing", { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.6);
+
+        // hashes
+        const card = svg("rect", { class: "card", x: CARD.x, y: CARD.y, width: CARD.width, height: CARD.height, rx: 16 }, stage);
+        const title = text(stage, ".explicador/scenes/login.json", { class: "card-title", x: 200, y: 316 });
+        const rule = svg("line", { class: "rule", x1: 200, y1: 344, x2: 1720, y2: 344 }, stage);
+        const rows = FILES.map((file, i) => {
+          const y = ROW_Y[i];
+          const path = text(stage, file.path, { class: "path", x: 200, y });
+          const hash = text(stage, `sha256 ${file.hash}`, { class: "hash", x: 780, y });
+          const lampAt = { cx: 1190, cy: y - 14, r: 18 };
+          svg("circle", { class: "lamp", ...lampAt }, stage);
+          const ok = svg("circle", { class: "lamp lamp--ok", ...lampAt }, stage);
+          const warn = svg("circle", { class: "lamp lamp--warn", ...lampAt }, stage);
+          gsap.set([ok, warn], { opacity: 0 });
+          return { path, hash, ok, warn, y };
+        });
+        tl.from(card, { drawSVG: 0, fillOpacity: 0, duration: 0.6, ease: "power2.inOut" }, 0.3);
+        writeIn(tl, title, 0.5, 0.5);
+        tl.from(rule, { drawSVG: 0, fillOpacity: 0, duration: 0.4, ease: "power2.out" }, 0.7);
+        rows.forEach((row, i) => {
+          writeIn(tl, row.path, 0.9 + i * 0.2, 0.4);
+          writeIn(tl, row.hash, 1.1 + i * 0.2, 0.4);
+        });
+        tl.addLabel("hashes");
+
+        // fresh: every hash matches the disk
+        let at = tl.duration();
+        tl.to(rows.map((row) => row.ok), { opacity: 1, duration: 0.3, ease: "power2.out", stagger: 0.15 }, at);
+        const fresh = text(stage, "fresh", { class: "status status--ok", x: 1300, y: 460 });
+        tl.from(fresh, { scale: 1.4, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at + 0.4);
+        const freshSay = text(stage, "2.ª vez: 0 archivos leídos, respuesta corta", { class: "say", x: 160, y: 630 });
+        writeIn(tl, freshSay, at + 0.6, 0.5);
+        tl.addLabel("fresh");
+
+        // stale: line 17 of password.js changes, so does its hash
+        at = tl.duration();
+        tl.to([fresh, freshSay], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        const first = rows[0];
+        const hashBg = svg("rect", { class: "hash-bg", x: 770, y: first.y - 44, width: 380, height: 58 }, over);
+        const newHash = text(over, `sha256 ${FILES[0].edited}`, { class: "hash hash--new", x: 780, y: first.y });
+        tl.from([hashBg, newHash], { opacity: 0, duration: 0.3, ease: "power2.out" }, at + 0.3);
+        tl.to(first.ok, { opacity: 0, duration: 0.2, ease: "power3.in" }, at + 0.3);
+        tl.to(first.warn, { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.35);
+        const stale = text(stage, "stale", { class: "status status--warn", x: 1300, y: 460 });
+        tl.from(stale, { scale: 1.4, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at + 0.6);
+        const edit = svg("rect", { class: "edit", x: 160, y: 600, width: 24, height: 24, rx: 5 }, stage);
+        const staleSay = text(stage, "Alguien cambió la línea 17: solo password.js vuelve a Claude", { class: "say", x: 204, y: 624 });
+        tl.from(edit, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, at + 0.8);
+        writeIn(tl, staleSay, at + 0.85, 0.6);
+        tl.addLabel("stale");
+
+        // codigo: the real type behind the three answers
+        at = tl.duration();
+        const codeTag = text(stage, "server/src/cache/index.ts:25-28", { class: "say say--mono", x: 160, y: 740 });
+        writeIn(tl, codeTag, at, 0.45);
+        codePanel.typeIn(tl, code.lineEls, at + 0.2, { perChar: 0.006 });
+        LIT.forEach((color, i) => {
+          if (!color) return;
+          const word = LOOKUP[i].match(/'(\w+)'/);
+          const box = code.spanBox(i, word.index, word.index + word[0].length);
+          const lit = document.createElement("div");
+          lit.className = "code__lit";
+          Object.assign(lit.style, { left: `${box.x - 200 - 6}px`, top: `${box.y - 780 + 6}px`, width: `${box.width + 12}px`, height: `${box.height - 12}px`, background: color, opacity: 0.35 });
+          code.block.querySelector(".code__bars").append(lit);
+          tl.from(lit, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.4, ease: "expo.out" }, at + 0.9 + i * 0.12);
+        });
+        tl.addLabel("codigo");
+        return tl;
+      },
+    });
+  })();
+</script>

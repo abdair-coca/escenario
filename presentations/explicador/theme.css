@@ -1,0 +1,53 @@
+/* «Plano de sala de control»: light graph paper, ink lines, three signal lights
+   (green passes, amber re-read, red blocked) and cobalt for references travelling. */
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("../../player/vendor/fonts/bricolage-grotesque-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-display: block;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("../../player/vendor/fonts/bricolage-grotesque-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../player/vendor/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../player/vendor/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
+}
+
+:root {
+  --paper: #eef1ec;
+  --grid: #dce2da;
+  --ink: #16202a;
+  --muted: #8d978f;
+  --accent: #2d5bd7; /* cobalt: references and data travelling */
+  --accent-2: #e39b1b; /* amber: stale, warnings, risks; highlighter bar */
+  --accent-3: #2e8b57; /* green: fresh, a check that passes; code keywords */
+  --ok: var(--accent-3);
+  --warn: var(--accent-2);
+  --block: #d2452f; /* red: missing, a rejected ref, a blocked request */
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, monospace;
+  --wipe: var(--ink);
+}
+
+/* The graph-paper grid sits on every scene host, so it travels with push and zoom. */
+.scene-host {
+  background-image:
+    linear-gradient(var(--grid) 2px, transparent 2px),
+    linear-gradient(90deg, var(--grid) 2px, transparent 2px);
+  background-size: 48px 48px;
+  background-position: -1px -1px;
+}

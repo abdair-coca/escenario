@@ -1,0 +1,147 @@
+<!--
+  ask-to-scene — a command in a terminal line, the usual answer as a grey paragraph, and the same
+  answer as a diagram of the login inside a local browser tab.
+-->
+<template>
+  <style>
+    .term { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .prompt { font-family: var(--font-code); font-size: 56px; fill: var(--ink); letter-spacing: -0.03em; }
+    .prompt__sign { fill: var(--accent); font-weight: 700; }
+    .para { fill: var(--muted); }
+    .para-label { font-size: 40px; font-weight: 500; font-style: italic; fill: var(--ink); }
+    .tab { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .tab__bar { fill: none; stroke: var(--ink); stroke-width: 4; }
+    .tab__url { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .tab__dot { fill: var(--muted); }
+    .box { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .box--focus { stroke: var(--accent); stroke-width: 7; }
+    .box__label { font-size: 40px; font-weight: 700; fill: var(--ink); }
+    .box__label--mono { font-family: var(--font-code); font-weight: 400; letter-spacing: -0.03em; }
+    .arrow { fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: round; }
+    .arrow-head { fill: var(--ink); }
+    .note { font-size: 40px; font-weight: 500; fill: var(--accent); }
+    .tag { font-size: 40px; font-weight: 700; fill: var(--accent); }
+    .nb { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+    .nb__cell { fill: var(--muted); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const TAB = { x: 160, y: 420, width: 1600, height: 470 };
+    const BOXES = [
+      { label: "Formulario", x: 220, width: 300 },
+      { label: "POST /api/login", x: 600, width: 400, mono: true },
+      { label: "password.js", x: 1080, width: 300, mono: true, focus: true },
+      { label: "cookie", x: 1460, width: 240 },
+    ];
+    const BOX_Y = 580;
+    const BOX_H = 110;
+    // Widths of the grey lines that stand for a written answer.
+    const PARAGRAPH = [1500, 1420, 1560, 1380, 1480, 1300, 1540, 900];
+
+    registerScene({
+      id: "ask-to-scene",
+      props: {
+        command: "/explicador:explain login", // what is typed in the terminal line
+        url: "127.0.0.1:4317/?t=9f2c…", // address shown in the tab
+      },
+      steps: ["pregunta", "parrafo", "escena", "plugin"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        const headline = block(root, "Un diagrama en vez de un párrafo", { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.6);
+
+        // pregunta
+        const term = svg("rect", { class: "term", x: 160, y: 250, width: 1600, height: 120, rx: 16 }, stage);
+        const prompt = text(stage, "", { class: "prompt", x: 210, y: 330 });
+        svg("tspan", { class: "prompt__sign" }, prompt).textContent = "> ";
+        svg("tspan", {}, prompt).textContent = props.command;
+        tl.from(term, { drawSVG: 0, fillOpacity: 0, duration: 0.6, ease: "power2.inOut" }, 0.3);
+        tl.fromTo(prompt, { clipPath: "inset(-20% 100% -20% 0%)" }, { clipPath: "inset(-20% 0% -20% 0%)", duration: 0.9, ease: "steps(26)" }, 0.7);
+        tl.addLabel("pregunta");
+
+        // parrafo
+        let at = tl.duration();
+        const paraLabel = text(stage, "La respuesta de siempre: texto", { class: "para-label", x: 160, y: 470 });
+        const lines = PARAGRAPH.map((width, i) => svg("rect", { class: "para", x: 160, y: 520 + i * 56, width, height: 22, rx: 11 }, stage));
+        writeIn(tl, paraLabel, at, 0.4);
+        tl.from(lines, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.45, ease: "expo.out", stagger: 0.06 }, at + 0.2);
+        tl.addLabel("parrafo");
+
+        // escena: the lines fold away and the tab grows in their place
+        at = tl.duration();
+        tl.to(lines, { scaleY: 0, transformOrigin: "50% 50%", duration: 0.25, ease: "power3.in", stagger: 0.03 }, at);
+        tl.to(paraLabel, { opacity: 0, duration: 0.2, ease: "power3.in" }, at);
+        const tab = drawTab(stage, props.url);
+        tl.from(tab.frame, { drawSVG: 0, fillOpacity: 0, duration: 0.7, ease: "power2.inOut" }, at + 0.3);
+        tl.from(tab.inner, { opacity: 0, duration: 0.3, ease: "power2.out" }, at + 0.7);
+        writeIn(tl, tab.url, at + 0.8, 0.5);
+        const diagram = drawDiagram(stage);
+        diagram.boxes.forEach((box, i) => {
+          const t = at + 1.0 + i * 0.25;
+          tl.from(box.rect, { drawSVG: 0, fillOpacity: 0, duration: 0.45, ease: "power2.inOut" }, t);
+          writeIn(tl, box.label, t + 0.2, 0.35);
+          if (diagram.arrows[i]) {
+            tl.from(diagram.arrows[i].line, { drawSVG: 0, fillOpacity: 0, duration: 0.3, ease: "power2.out" }, t + 0.3);
+            tl.from(diagram.arrows[i].head, { scale: 0, transformOrigin: "50% 50%", duration: 0.2, ease: "expo.out" }, t + 0.45);
+          }
+        });
+        writeIn(tl, diagram.note, at + 2.1, 0.5);
+        tl.addLabel("escena");
+
+        // plugin
+        at = tl.duration();
+        const tag = text(stage, "← plugin de Claude Code", { class: "tag", x: 1720, y: 326, "text-anchor": "end" });
+        writeIn(tl, tag, at, 0.5);
+        const notebook = drawNotebook(stage);
+        tl.from(notebook.g, { y: -40, opacity: 0, duration: 0.5, ease: "expo.out" }, at + 0.5);
+        writeIn(tl, notebook.label, at + 0.7, 0.5);
+        tl.addLabel("plugin");
+        return tl;
+      },
+    });
+
+    function drawTab(stage, url) {
+      const frame = svg("rect", { class: "tab", x: TAB.x, y: TAB.y, width: TAB.width, height: TAB.height, rx: 18 }, stage);
+      const inner = svg("g", {}, stage);
+      svg("path", { class: "tab__bar", d: `M${TAB.x},${TAB.y + 84} H${TAB.x + TAB.width}` }, inner);
+      [0, 1, 2].forEach((i) => svg("circle", { class: "tab__dot", cx: TAB.x + 44 + i * 36, cy: TAB.y + 42, r: 10, "data-decor": "" }, inner));
+      const urlText = text(stage, url, { class: "tab__url", x: TAB.x + 180, y: TAB.y + 56 });
+      return { frame, inner, url: urlText };
+    }
+
+    function drawDiagram(stage) {
+      const boxes = BOXES.map((spec) => {
+        const rect = svg("rect", { class: spec.focus ? "box box--focus" : "box", x: spec.x, y: BOX_Y, width: spec.width, height: BOX_H, rx: 14 }, stage);
+        const labelClass = spec.mono ? "box__label box__label--mono mid" : "box__label mid";
+        const label = text(stage, spec.label, { class: labelClass, x: spec.x + spec.width / 2, y: BOX_Y + BOX_H / 2 + 2 });
+        return { rect, label, spec };
+      });
+      const arrows = boxes.slice(0, -1).map((box, i) => {
+        const x1 = box.spec.x + box.spec.width;
+        const x2 = boxes[i + 1].spec.x - 10;
+        const y = BOX_Y + BOX_H / 2;
+        const line = svg("path", { class: "arrow", d: `M${x1},${y} H${x2 - 12}` }, stage);
+        const head = svg("path", { class: "arrow-head", d: `M${x2},${y} l-24,-14 v28 Z` }, stage);
+        return { line, head };
+      });
+      const focus = BOXES[2];
+      const note = text(stage, "verifyPassword · líneas 14–19", { class: "note mid", x: focus.x + focus.width / 2, y: BOX_Y + BOX_H + 70 });
+      return { boxes, arrows, note };
+    }
+
+    // A notebook page with cells, and what it becomes.
+    function drawNotebook(stage) {
+      const g = svg("g", {}, stage);
+      svg("rect", { class: "nb", x: 160, y: 930, width: 64, height: 80, rx: 8 }, g);
+      [0, 1, 2].forEach((i) => svg("rect", { class: "nb__cell", x: 172, y: 944 + i * 22, width: 40, height: 12, rx: 4, "data-decor": "" }, g));
+      const label = text(stage, "y un notebook de Jupyter → una lección por capítulos", { class: "para-label", x: 250, y: 984 });
+      return { g, label };
+    }
+  })();
+</script>

@@ -19,11 +19,11 @@
 <script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
 <script src="/library/shared/scene-kit.js"></script>
 <script src="/library/shared/bst-tree.js"></script>
-<script src="/library/shared/python-code.js"></script>
+<script src="/library/shared/code-panel.js"></script>
 <script>
   (function () {
     const { svg, text, canvas, addStyles, block, writeIn } = window.sceneKit;
-    const { bstTree, pythonCode } = window;
+    const { bstTree, codePanel } = window;
     const CODE_AT = { x: 800, y: 300 };
     const TOKEN_OFFSET = { x: 82, y: -64 };
     const HEADLINE = { x: 160, y: 96, className: "t96" };
@@ -75,7 +75,7 @@
       steps: stepsFor,
       build(root, props, gsap) {
         addStyles(root);
-        addStyles(root, bstTree.CSS + pythonCode.CSS);
+        addStyles(root, bstTree.CSS + codePanel.CSS);
         const stage = canvas(root);
         const { compared, end, spot } = bstTree.walk(props.values, props.target);
         const treeGroup = svg("g", { class: "tree" }, stage);
@@ -92,7 +92,7 @@
         tl.to(token, { scale: 1, duration: 0.5, ease: "expo.out" }, "-=0.2");
         tl.addLabel("codigo");
 
-        const code = pythonCode.render(root, props.code, CODE_AT);
+        const code = codePanel.render(root, props.code, CODE_AT);
         typeCode(tl, code, props);
         walkSteps(tl, { compared, end, spot, tree, token, overlay, pathLayer, code, props });
         return tl;
@@ -113,11 +113,11 @@
         tl.to(treeGroup, { x: 0, y: 0, scale: 1, duration: 1, ease: "power2.inOut" }, 0);
         return;
       }
-      const old = pythonCode.render(root, props.previousCode, CODE_AT);
+      const old = codePanel.render(root, props.previousCode, CODE_AT);
       const oldBar = old.bar(props.previousLines);
       gsap.set(oldBar, { scaleX: 1 });
       tl.to(old.lineEls, { y: -40, opacity: 0, duration: 0.25, ease: "power3.in", stagger: 0.04 }, 0);
-      pythonCode.swipeOut(tl, oldBar, 0);
+      codePanel.swipeOut(tl, oldBar, 0);
       if (props.fresh !== null) {
         tl.to(tree.nodes.get(props.fresh).circle, { fill: "var(--paper)", duration: 0.4, ease: "power2.out" }, 0.2);
       }
@@ -127,7 +127,7 @@
       const at = props.enter === "slide" ? 0.5 : 0.45;
       // Typing belongs to the entrance, before the "codigo" hold.
       const typing = gsap.timeline();
-      pythonCode.typeIn(typing, code.lineEls, 0);
+      codePanel.typeIn(typing, code.lineEls, 0);
       tl.add(typing, at);
       tl.addLabel("codigo", Math.max(tl.labels.codigo, at + typing.duration()));
     }
@@ -138,7 +138,7 @@
       let previousRing = null;
       const exitPrevious = () => {
         if (previousCaption) tl.to(previousCaption, { opacity: 0, duration: 0.2, ease: "power3.in" }, "<");
-        if (previousBar) pythonCode.swipeOut(tl, previousBar, "<");
+        if (previousBar) codePanel.swipeOut(tl, previousBar, "<");
         if (previousRing) tl.to(previousRing, { opacity: 0, duration: 0.2, ease: "power3.in" }, "<");
       };
 
@@ -154,7 +154,7 @@
         const cap = caption(overlay, `${props.target} ${sign} ${value}`, say);
         tl.from(cap, { x: -40, opacity: 0, duration: 0.5, ease: "expo.out" }, "<0.1");
         const bar = code.bar(goRight ? props.lines.right : props.lines.left);
-        pythonCode.swipeIn(tl, bar, "<0.1");
+        codePanel.swipeIn(tl, bar, "<0.1");
         const next = nextStop(tree, node, goRight, spot);
         const path = svg("line", { class: "path", x1: node.x, y1: node.y, x2: next.x, y2: next.y }, pathLayer);
         tl.from(path, { drawSVG: 0, duration: 0.5, ease: "power2.out" }, "<0.15");
@@ -190,7 +190,7 @@
       exitPrevious();
       const cap = caption(overlay, "Hueco libre", `· aquí va el ${props.target}`);
       tl.from(cap, { x: -40, opacity: 0, duration: 0.5, ease: "expo.out" }, "<0.1");
-      pythonCode.swipeIn(tl, code.bar(props.lines.empty), "<0.1");
+      codePanel.swipeIn(tl, code.bar(props.lines.empty), "<0.1");
       const fresh = bstTree.draw(svg("g", {}, overlay), [props.target], { layout: { ...bstTree.LAYOUT, cx: at.x, top: at.y } });
       const node = fresh.nodes.get(props.target);
       node.circle.style.setProperty("fill", "var(--accent-2)");
@@ -209,7 +209,7 @@
       exitPrevious();
       const cap = caption(overlay, `${props.target} == ${props.target}`, "· encontrado");
       tl.from(cap, { x: -40, opacity: 0, duration: 0.5, ease: "expo.out" }, "<0.1");
-      pythonCode.swipeIn(tl, code.bar(props.lines.found), "<0.1");
+      codePanel.swipeIn(tl, code.bar(props.lines.found), "<0.1");
       const ring = svg("circle", { class: "found-ring", r: bstTree.LAYOUT.radius + 14 }, node.g);
       tl.from(ring, { drawSVG: 0, duration: 0.5, ease: "power2.out" }, "<0.1");
       tl.to(node.circle, { fill: "var(--accent-2)", duration: 0.3 }, "<");
@@ -225,7 +225,7 @@
       exitPrevious();
       const cap = caption(overlay, "None", `· el ${props.target} no está`);
       tl.from(cap, { x: -40, opacity: 0, duration: 0.5, ease: "expo.out" }, "<0.1");
-      pythonCode.swipeIn(tl, code.bar(props.lines.empty), "<0.1");
+      codePanel.swipeIn(tl, code.bar(props.lines.empty), "<0.1");
       tl.addLabel("no-esta");
     }
   })();

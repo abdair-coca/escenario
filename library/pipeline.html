@@ -1,0 +1,350 @@
+<!--
+  pipeline — pieces joined by arrows, drawn one part per step. Everything comes from props:
+  `elements` lists what can appear (pieces, links, pins, packets, cursors, text, checks) and
+  `steps` says which ones each click adds. The piece added last is outlined in --accent until the
+  next step. Each piece group has the class `piece-<id>`, so transitions can zoom into it.
+
+  Element kinds (all coordinates in canvas pixels):
+    piece   { id, label, detail?, caption?, x, y, width, shape?: box|sheet|folder, tone?: ok|block, dashed?, mono? }
+    link    { id, from?, to?, points?: [[x,y]…], label?, labelAt?: [x,y], dashed? }  from/to are piece ids
+    pin     { id, text: [lines], at: [x,y], to: [x,y], bracket?: [x1, x2, y] }      amber note with a leader
+    packet  { id, on: linkId, text, stop?: 0–1 }                                     travels along a link and parks at `stop` of its length
+    cursor  { id, at: [x,y] }                                                        moves in and clicks
+    text    { id, text, x, y, width?, size?: 40|56|72 }
+    check   { id, text, x, y }                                                       an empty box and its text
+-->
+<template>
+  <style>
+    .piece__body { fill: var(--paper); }
+    .piece__line { fill: none; stroke: var(--ink); stroke-width: 5; stroke-linejoin: round; }
+    .piece__focus { fill: none; stroke: var(--accent); stroke-width: 7; stroke-linejoin: round; }
+    .piece--ok .piece__line { stroke: var(--ok, var(--accent-3)); }
+    .piece--block .piece__line { stroke: var(--block, var(--accent)); }
+    .piece--dashed .piece__line { stroke-dasharray: 18 12; }
+    .piece__label { font-size: 56px; font-weight: 700; fill: var(--ink); }
+    .piece__detail { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .piece__detail--mono { font-family: var(--font-code); font-weight: 400; letter-spacing: -0.03em; }
+    .piece__caption { font-size: 40px; font-weight: 500; font-style: italic; fill: var(--ink); }
+    .link__line { fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+    .link--dashed .link__line { stroke-dasharray: 14 12; }
+    .link__head { fill: var(--ink); }
+    .link__label { font-family: var(--font-code); font-size: 40px; fill: var(--accent); letter-spacing: -0.03em; }
+    .pin__line { fill: none; stroke: var(--accent-2); stroke-width: 5; stroke-linecap: round; }
+    .pin__dot { fill: var(--accent-2); }
+    .pin__text { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .pin__mark { fill: var(--accent-2); }
+    .packet rect { fill: var(--accent); }
+    .packet text { fill: var(--paper); font-family: var(--font-code); font-size: 40px; font-weight: 700; }
+    .cursor__arrow { fill: var(--ink); stroke: var(--paper); stroke-width: 4; stroke-linejoin: round; }
+    .cursor__ring { fill: none; stroke: var(--accent); stroke-width: 6; }
+    .check__box { fill: none; stroke: var(--ink); stroke-width: 5; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const HEIGHT = { withDetail: 150, plain: 110 };
+    const PAD = 28;
+    const GAP = 10; // space between an arrow tip and the piece it points at
+
+    registerScene({
+      id: "pipeline",
+      props: {
+        title: "Las piezas", // headline, top left
+        elements: [], // everything that can appear; kinds in the comment at the top of this file
+        entrance: [], // element ids drawn before the first step
+        steps: [{ name: "uno", add: [] }], // per click: { name, add: [ids], clear?: true (removes all drawn so far) }
+      },
+      steps: (props) => props.steps.map((step) => step.name),
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const byId = new Map(props.elements.map((element) => [element.id, element]));
+        const layers = { root, byId, links: svg("g", {}, stage), pieces: svg("g", {}, stage), notes: svg("g", {}, stage) };
+        const tl = gsap.timeline();
+        const headline = block(root, props.title, { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.6);
+
+        const drawn = new Map();
+        const draw = (id) => {
+          const element = byId.get(id);
+          if (!element) throw new Error(`pipeline: no element "${id}"`);
+          const make = MAKERS[element.kind];
+          if (!make) throw new Error(`pipeline: unknown kind "${element.kind}" for "${id}"`);
+          const made = make(layers, element, drawn);
+          drawn.set(id, { ...made, element });
+          return drawn.get(id);
+        };
+
+        // The entrance is the starting picture: nothing in it is "the newest thing".
+        const entrance = props.entrance.map(draw);
+        entrance.forEach((item) => item.focus && gsap.set(item.focus, { opacity: 0 }));
+        addAll(tl, entrance, 0.3);
+        let focused = [];
+        let transient = [];
+        let shown = [...props.entrance];
+
+        props.steps.forEach((step) => {
+          let start = tl.duration();
+          // Previous focus goes back to ink; packets and cursors of the previous step leave.
+          if (focused.length) tl.to(focused.map((piece) => piece.focus), { opacity: 0, duration: 0.3, ease: "power2.inOut" }, start);
+          transient.forEach((item) => tl.to(item.g, { opacity: 0, duration: 0.2, ease: "power3.in" }, start));
+          if (step.clear) {
+            tl.to(shown.map((id) => drawn.get(id).g), { opacity: 0, duration: 0.3, ease: "power3.in", stagger: 0.02 }, start);
+            start += 0.35;
+            shown = [];
+          }
+          const added = step.add.map(draw);
+          addAll(tl, added, start + 0.05);
+          focused = added.filter((item) => item.focus);
+          transient = added.filter((item) => item.element.kind === "packet" || item.element.kind === "cursor");
+          shown.push(...step.add);
+          tl.addLabel(step.name);
+        });
+        return tl;
+      },
+    });
+
+    // Each element enters when the previous one is about half done. Returns the end time.
+    function addAll(tl, items, start) {
+      let at = start;
+      let end = start;
+      items.forEach((item) => {
+        const duration = item.enter(tl, at);
+        end = Math.max(end, at + duration);
+        at += duration * 0.5;
+      });
+      return end;
+    }
+
+    function boxOf(element) {
+      const height = element.detail ? HEIGHT.withDetail : HEIGHT.plain;
+      return { x: element.x, y: element.y, width: element.width, height };
+    }
+
+    function outlinePath({ x, y, width, height }, shape) {
+      const r = 14;
+      if (shape === "sheet") {
+        const fold = 40;
+        return `M${x + r},${y} H${x + width - fold} L${x + width},${y + fold} V${y + height - r} Q${x + width},${y + height} ${x + width - r},${y + height} H${x + r} Q${x},${y + height} ${x},${y + height - r} V${y + r} Q${x},${y} ${x + r},${y} Z M${x + width - fold},${y} V${y + fold} H${x + width}`;
+      }
+      if (shape === "folder") {
+        const tab = Math.min(180, width * 0.4);
+        return `M${x},${y + r} Q${x},${y - 30} ${x + r},${y - 30} H${x + tab - 20} L${x + tab + 10},${y} H${x + width - r} Q${x + width},${y} ${x + width},${y + r} V${y + height - r} Q${x + width},${y + height} ${x + width - r},${y + height} H${x + r} Q${x},${y + height} ${x},${y + height - r} Z`;
+      }
+      return `M${x + r},${y} H${x + width - r} Q${x + width},${y} ${x + width},${y + r} V${y + height - r} Q${x + width},${y + height} ${x + width - r},${y + height} H${x + r} Q${x},${y + height} ${x},${y + height - r} V${y + r} Q${x},${y} ${x + r},${y} Z`;
+    }
+
+    function piece(layers, element) {
+      const box = boxOf(element);
+      const classes = ["piece", `piece-${element.id}`];
+      if (element.tone) classes.push(`piece--${element.tone}`);
+      if (element.dashed) classes.push("piece--dashed");
+      const g = svg("g", { class: classes.join(" ") }, layers.pieces);
+      const d = outlinePath(box, element.shape);
+      const body = svg("path", { class: "piece__body", d }, g);
+      const line = svg("path", { class: "piece__line", d }, g);
+      // Pieces without a tone are outlined in --accent while they are the newest thing on screen.
+      const focus = element.tone || element.dashed ? null : svg("path", { class: "piece__focus", d }, g);
+      const parts = [text(g, element.label, { class: "piece__label", x: box.x + PAD, y: box.y + 72 })];
+      if (element.detail) {
+        const detailClass = element.mono ? "piece__detail piece__detail--mono" : "piece__detail";
+        parts.push(text(g, element.detail, { class: detailClass, x: box.x + PAD, y: box.y + 124 }));
+      }
+      const caption = element.caption
+        ? text(g, element.caption, { class: "piece__caption mid", x: box.x + box.width / 2, y: box.y + box.height + 52 })
+        : null;
+      return {
+        g,
+        focus,
+        enter(tl, at) {
+          tl.from(body, { opacity: 0, duration: 0.3, ease: "power2.out" }, at);
+          if (element.dashed) tl.from(line, { opacity: 0, duration: 0.4, ease: "power2.out" }, at);
+          else tl.from([line, focus].filter(Boolean), { drawSVG: 0, duration: 0.6, ease: "power2.inOut" }, at);
+          parts.forEach((part, i) => writeIn(tl, part, at + 0.3 + i * 0.12, 0.4));
+          if (caption) writeIn(tl, caption, at + 0.55, 0.4);
+          return caption ? 0.95 : 0.85;
+        },
+      };
+    }
+
+    // Start and end points of a link without explicit points: edge to edge, straight.
+    function autoPoints(from, to) {
+      const a = boxOf(from);
+      const b = boxOf(to);
+      const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+      if (overlapX > 40) {
+        const x = Math.max(a.x, b.x) + overlapX / 2;
+        return a.y < b.y ? [[x, a.y + a.height], [x, b.y - GAP]] : [[x, a.y], [x, b.y + b.height + GAP]];
+      }
+      const y = Math.max(a.y, b.y) + (Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)) / 2;
+      return a.x < b.x ? [[a.x + a.width, y], [b.x - GAP, y]] : [[a.x, y], [b.x + b.width + GAP, y]];
+    }
+
+    function link(layers, element) {
+      const piece = (end) => layers.byId.get(element[end]) ?? fail(element, end);
+      const points = element.points ?? autoPoints(piece("from"), piece("to"));
+      const classes = element.dashed ? "link link--dashed" : "link";
+      const g = svg("g", { class: `${classes} link-${element.id}` }, layers.links);
+      const line = svg("path", { class: "link__line", d: `M${points.map((p) => p.join(",")).join(" L")}` }, g);
+      const [px, py] = points[points.length - 2];
+      const [ex, ey] = points[points.length - 1];
+      const angle = (Math.atan2(ey - py, ex - px) * 180) / Math.PI;
+      const head = svg("path", { class: "link__head", d: "M0,0 L-26,-15 L-26,15 Z", transform: `translate(${ex},${ey}) rotate(${angle})` }, g);
+      let label = null;
+      if (element.label) {
+        const [lx, ly] = element.labelAt ?? labelPoint(points);
+        label = text(g, element.label, { class: `link__label${element.labelAt ? "" : " mid"}`, x: lx, y: ly });
+      }
+      return {
+        g,
+        points,
+        enter(tl, at) {
+          if (element.dashed) tl.from(line, { opacity: 0, duration: 0.4, ease: "power2.out" }, at);
+          else tl.from(line, { drawSVG: 0, duration: 0.5, ease: "power2.inOut" }, at);
+          tl.from(head, { opacity: 0, scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, at + 0.4);
+          if (label) writeIn(tl, label, at + 0.3, 0.4);
+          return 0.7;
+        },
+      };
+    }
+
+    function fail(element, end) {
+      throw new Error(`pipeline: link "${element.id}" needs "${end}" (a piece id) or "points"`);
+    }
+
+    // Above the middle of the longest horizontal segment, or right of the longest vertical one.
+    function labelPoint(points) {
+      let best = null;
+      for (let i = 1; i < points.length; i += 1) {
+        const [x1, y1] = points[i - 1];
+        const [x2, y2] = points[i];
+        const length = Math.hypot(x2 - x1, y2 - y1);
+        if (!best || length > best.length) best = { length, x: (x1 + x2) / 2, y: (y1 + y2) / 2, flat: y1 === y2 };
+      }
+      return best.flat ? [best.x, best.y - 34] : [best.x + 24, best.y];
+    }
+
+    function pin(layers, element) {
+      const g = svg("g", { class: `pin pin-${element.id}` }, layers.notes);
+      const [ax, ay] = element.at;
+      const [tx, ty] = element.to;
+      let bracket = null;
+      if (element.bracket) {
+        const [x1, x2, y] = element.bracket;
+        bracket = svg("path", { class: "pin__line", d: `M${x1},${y + 18} V${y} H${x2} V${y + 18}` }, g);
+      }
+      const leader = svg("path", { class: "pin__line", d: `M${ax - 20},${ay - 14} L${tx},${ty}` }, g);
+      const dot = svg("circle", { class: "pin__dot", cx: tx, cy: ty, r: 9 }, g);
+      const mark = svg("rect", { class: "pin__mark", x: ax - 34, y: ay - 28, width: 28, height: 28, rx: 6 }, g);
+      const lines = element.text.map((line, i) => text(g, line, { class: "pin__text", x: ax + 14, y: ay + i * 52 }));
+      return {
+        g,
+        enter(tl, at) {
+          tl.from(g, { opacity: 0, duration: 0.15, ease: "power2.out" }, at);
+          if (bracket) tl.from(bracket, { drawSVG: "50% 50%", duration: 0.5, ease: "power2.out" }, at);
+          tl.from(dot, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, at);
+          tl.from(leader, { drawSVG: "100% 100%", duration: 0.4, ease: "power2.out" }, at + 0.1);
+          tl.from(mark, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, at + 0.35);
+          lines.forEach((line, i) => writeIn(tl, line, at + 0.4 + i * 0.1, 0.4));
+          return 0.8 + lines.length * 0.1;
+        },
+      };
+    }
+
+    function packet(layers, element, drawn) {
+      const route = drawn.get(element.on);
+      if (!route) throw new Error(`pipeline: packet "${element.id}" needs link "${element.on}" drawn first`);
+      const g = svg("g", { class: `packet packet-${element.id}` }, layers.notes);
+      const rect = svg("rect", { height: 64, rx: 32, y: -32 }, g);
+      const label = text(g, element.text, { class: "mid", y: 2 });
+      const width = label.getComputedTextLength() + 48;
+      rect.setAttribute("width", width);
+      rect.setAttribute("x", -width / 2);
+      const points = cutAt(route.points, element.stop ?? 1);
+      const lengths = points.slice(1).map((p, i) => Math.hypot(p[0] - points[i][0], p[1] - points[i][1]));
+      const total = lengths.reduce((a, b) => a + b, 0);
+      const travel = 1.0;
+      gsap.set(g, { x: points[0][0], y: points[0][1] });
+      return {
+        g,
+        enter(tl, at) {
+          tl.from(g, { scale: 0, opacity: 0, transformOrigin: "50% 50%", duration: 0.25, ease: "expo.out" }, at);
+          tl.to(g, {
+            keyframes: points.slice(1).map((p, i) => ({ x: p[0], y: p[1], duration: (lengths[i] / total) * travel, ease: "none" })),
+          }, at + 0.2);
+          return 0.2 + travel;
+        },
+      };
+    }
+
+    // The polyline from its start to `fraction` of its length.
+    function cutAt(points, fraction) {
+      const lengths = points.slice(1).map((p, i) => Math.hypot(p[0] - points[i][0], p[1] - points[i][1]));
+      let left = lengths.reduce((a, b) => a + b, 0) * fraction;
+      const out = [points[0]];
+      for (let i = 0; i < lengths.length; i += 1) {
+        if (left >= lengths[i]) {
+          out.push(points[i + 1]);
+          left -= lengths[i];
+          continue;
+        }
+        const t = left / lengths[i];
+        out.push([points[i][0] + (points[i + 1][0] - points[i][0]) * t, points[i][1] + (points[i + 1][1] - points[i][1]) * t]);
+        break;
+      }
+      return out;
+    }
+
+    function cursor(layers, element) {
+      const [x, y] = element.at;
+      const g = svg("g", { class: `cursor cursor-${element.id}` }, layers.notes);
+      const ring = svg("circle", { class: "cursor__ring", cx: x, cy: y, r: 36 }, g);
+      const arrow = svg("path", { class: "cursor__arrow", d: `M${x},${y} l0,64 l16,-14 l12,28 l14,-6 l-12,-28 l22,-2 Z` }, g);
+      gsap.set(ring, { opacity: 0 });
+      return {
+        g,
+        enter(tl, at) {
+          tl.from(arrow, { x: 120, y: 90, opacity: 0, duration: 0.55, ease: "expo.out" }, at);
+          tl.fromTo(ring, { scale: 0.3, opacity: 1, transformOrigin: "50% 50%" }, { scale: 1.2, opacity: 0, duration: 0.45, ease: "power2.out" }, at + 0.5);
+          return 0.95;
+        },
+      };
+    }
+
+    function textElement(layers, element) {
+      const size = element.size ?? 40;
+      const el = block(layers.root, element.text, {
+        x: element.x,
+        y: element.y,
+        className: `t${size}`,
+        width: element.width ?? null,
+      });
+      return {
+        g: el,
+        enter(tl, at) {
+          writeIn(tl, el, at, 0.6);
+          return 0.6;
+        },
+      };
+    }
+
+    function check(layers, element) {
+      const g = svg("g", { class: `check check-${element.id}` }, layers.notes);
+      const box = svg("rect", { class: "check__box", x: element.x, y: element.y - 42, width: 48, height: 48, rx: 8 }, g);
+      const label = text(g, element.text, { class: "t56", x: element.x + 80, y: element.y });
+      return {
+        g,
+        enter(tl, at) {
+          tl.from(box, { drawSVG: 0, duration: 0.45, ease: "power2.inOut" }, at);
+          writeIn(tl, label, at + 0.2, 0.45);
+          return 0.65;
+        },
+      };
+    }
+
+    const MAKERS = { piece, link, pin, packet, cursor, text: textElement, check };
+  })();
+</script>

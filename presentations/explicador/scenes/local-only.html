@@ -1,0 +1,139 @@
+<!--
+  local-only — a boundary around "tu máquina": the bridge listens on 127.0.0.1 behind three checks,
+  the viewer serves only project files, the exported HTML makes no requests. The only arrow that
+  leaves the machine is what Claude Code already sends.
+-->
+<template>
+  <style>
+    .border { fill: none; stroke: var(--ink); stroke-width: 5; stroke-dasharray: 22 14; }
+    .border-label { font-size: 40px; font-weight: 700; fill: var(--ink); }
+    .box { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .box-label { font-size: 40px; font-weight: 700; fill: var(--ink); }
+    .cross { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; }
+    .cross-head { fill: var(--accent); }
+    .cross-label { font-size: 40px; font-weight: 500; fill: var(--accent); }
+    .url { font-family: var(--font-code); font-size: 56px; fill: var(--ink); letter-spacing: -0.03em; }
+    .url__token { fill: var(--accent); font-weight: 700; }
+    .url-box { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .check { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .tick { fill: none; stroke: var(--ok); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+    .cross-mark { fill: none; stroke: var(--block); stroke-width: 8; stroke-linecap: round; }
+    .file { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .file--blocked { fill: var(--block); text-decoration: line-through; }
+    .doc { fill: var(--paper); stroke: var(--ink); stroke-width: 5; stroke-linejoin: round; }
+    .badge rect { fill: var(--ok); }
+    .badge text { font-size: 40px; font-weight: 700; fill: var(--paper); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const BORDER = { x: 120, y: 240, width: 1360, height: 780 };
+    const CHECKS = ["token nuevo en cada arranque", "POST solo desde la página (Origin)", "Host comprobado: sin DNS rebinding"];
+    const FILES = [
+      { name: "src/auth/password.js", ok: true },
+      { name: ".env" },
+      { name: ".git/" },
+      { name: "../otro/" },
+      { name: "enlace → /etc" },
+    ];
+
+    registerScene({
+      id: "local-only",
+      props: {
+        url: "127.0.0.1:4317/?t=9f2c…", // the viewer's address; the part after t= is the token
+      },
+      steps: ["frontera", "token", "archivos", "export"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        const headline = block(root, "Todo se queda en 127.0.0.1", { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.6);
+
+        // frontera: the machine, Claude Code inside, the API outside, one arrow across
+        const border = svg("rect", { class: "border", ...BORDER, rx: 28 }, stage);
+        const borderLabel = text(stage, "tu máquina", { class: "border-label", x: BORDER.x + 40, y: BORDER.y + 64 });
+        const inside = drawBox(stage, "Claude Code", 1100, 280, 340);
+        const outside = drawBox(stage, "API de Claude", 1530, 280, 294);
+        const cross = svg("path", { class: "cross", d: "M1440,340 H1504" }, stage);
+        const crossHead = svg("path", { class: "cross-head", d: "M1526,340 l-24,-14 v28 Z" }, stage);
+        const crossLabel = svg("g", {}, stage);
+        ["solo lo que", "Claude Code", "ya envía"].forEach((line, i) => text(crossLabel, line, { class: "cross-label", x: 1530, y: 470 + i * 56 }));
+        tl.from(border, { opacity: 0, scale: 0.97, transformOrigin: "50% 50%", duration: 0.6, ease: "expo.out" }, 0.3);
+        writeIn(tl, borderLabel, 0.5, 0.4);
+        [inside, outside].forEach((box, i) => {
+          tl.from(box.rect, { drawSVG: 0, fillOpacity: 0, duration: 0.5, ease: "power2.inOut" }, 0.6 + i * 0.2);
+          writeIn(tl, box.label, 0.8 + i * 0.2, 0.35);
+        });
+        tl.from(cross, { drawSVG: 0, fillOpacity: 0, duration: 0.3, ease: "power2.out" }, 1.2);
+        tl.from(crossHead, { scale: 0, transformOrigin: "50% 50%", duration: 0.25, ease: "expo.out" }, 1.4);
+        writeIn(tl, crossLabel, 1.45, 0.5);
+        tl.addLabel("frontera");
+
+        // token: the address and the three checks on every request
+        let at = tl.duration();
+        const urlBox = svg("rect", { class: "url-box", x: 180, y: 340, width: 860, height: 96, rx: 48 }, stage);
+        const url = text(stage, "", { class: "url", x: 220, y: 408 });
+        const [address, token] = props.url.split("?");
+        svg("tspan", {}, url).textContent = `${address}?`;
+        svg("tspan", { class: "url__token" }, url).textContent = token;
+        tl.from(urlBox, { drawSVG: 0, fillOpacity: 0, duration: 0.5, ease: "power2.inOut" }, at);
+        writeIn(tl, url, at + 0.2, 0.6);
+        CHECKS.forEach((line, i) => {
+          const y = 510 + i * 64;
+          const tick = svg("path", { class: "tick", d: `M200,${y - 18} l14,14 l28,-30` }, stage);
+          const label = text(stage, line, { class: "check", x: 264, y });
+          tl.from(tick, { drawSVG: 0, fillOpacity: 0, duration: 0.3, ease: "power2.out" }, at + 0.6 + i * 0.15);
+          writeIn(tl, label, at + 0.65 + i * 0.15, 0.4);
+        });
+        tl.addLabel("token");
+
+        // archivos: the viewer serves only the project
+        at = tl.duration();
+        const filesTitle = text(stage, "El visor sirve:", { class: "border-label", x: 180, y: 760 });
+        writeIn(tl, filesTitle, at, 0.4);
+        FILES.forEach((file, i) => {
+          const column = i === 0 ? 0 : 1;
+          const row = i === 0 ? 0 : i - 1;
+          const x = column === 0 ? 240 : 760;
+          const y = column === 0 ? 840 : 760 + row * 62;
+          const mark = file.ok
+            ? svg("path", { class: "tick", d: `M${x - 54},${y - 18} l14,14 l28,-30` }, stage)
+            : svg("path", { class: "cross-mark", d: `M${x - 40},${y - 30} l26,26 M${x - 14},${y - 30} l-26,26` }, stage);
+          const label = text(stage, file.name, { class: file.ok ? "file" : "file file--blocked", x, y });
+          tl.from(mark, { drawSVG: 0, fillOpacity: 0, duration: 0.3, ease: "power2.out" }, at + 0.3 + i * 0.12);
+          writeIn(tl, label, at + 0.35 + i * 0.12, 0.35);
+        });
+        tl.addLabel("archivos");
+
+        // export: one HTML file that works offline
+        at = tl.duration();
+        const doc = svg("path", { class: "doc", d: "M1100,500 H1200 L1240,540 V680 H1100 Z M1200,500 V540 H1240" }, stage);
+        const docLabel = text(stage, "login.html", { class: "file", x: 1100, y: 750 });
+        const badges = ["0 peticiones", "CSP estricta"].map((label, i) => badge(stage, label, 1100, 840 + i * 84));
+        tl.from(doc, { drawSVG: 0, fillOpacity: 0, duration: 0.5, ease: "power2.inOut" }, at);
+        writeIn(tl, docLabel, at + 0.3, 0.4);
+        badges.forEach((g, i) => tl.from(g, { scale: 1.3, opacity: 0, transformOrigin: "0% 50%", duration: 0.4, ease: "expo.out" }, at + 0.5 + i * 0.15));
+        tl.addLabel("export");
+        return tl;
+      },
+    });
+
+    function drawBox(stage, label, x, y, width) {
+      const rect = svg("rect", { class: "box", x, y, width, height: 120, rx: 14 }, stage);
+      const t = text(stage, label, { class: "box-label mid", x: x + width / 2, y: y + 62 });
+      return { rect, label: t };
+    }
+
+    function badge(stage, label, x, y) {
+      const g = svg("g", { class: "badge" }, stage);
+      const rect = svg("rect", { x, y: y - 44, height: 60, rx: 30 }, g);
+      const t = text(g, label, { x: x + 24, y });
+      rect.setAttribute("width", t.getComputedTextLength() + 48);
+      return g;
+    }
+  })();
+</script>

@@ -17,11 +17,11 @@
 </template>
 <script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
 <script src="/library/shared/scene-kit.js"></script>
-<script src="/library/shared/python-code.js"></script>
+<script src="/library/shared/code-panel.js"></script>
 <script>
   (function () {
     const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
-    const { pythonCode } = window;
+    const { codePanel } = window;
     const BIG = { x: 140, y: 520, height: 180, parts: [180, 240, 180] };
     const SMALL = { x: 500, y: 840, height: 108, parts: [124, 144, 124] };
     const CODE = [
@@ -44,10 +44,10 @@
       steps: ["valor", "izq", "der", "enlazar"],
       build(root, props, gsap) {
         addStyles(root);
-        addStyles(root, pythonCode.CSS);
+        addStyles(root, codePanel.CSS);
         const stage = canvas(root);
         const tl = gsap.timeline();
-        const code = pythonCode.render(root, CODE, { x: 960, y: 300, lineHeight: 64 });
+        const code = codePanel.render(root, CODE, { x: 960, y: 300, lineHeight: 64 });
         const big = drawBox(stage, BIG, props.value, "t96", "node-big");
         const leaders = svg("g", {}, stage);
 
@@ -60,9 +60,9 @@
         tl.from(big.value, { y: -60, opacity: 0, duration: 0.6, ease: "expo.out" }, 0.75);
         const parts = partLabels(stage, BIG);
         writeIn(tl, parts.valor, 0.9, 0.35);
-        pythonCode.typeIn(tl, code.lineEls.slice(0, 3), 0.5);
+        codePanel.typeIn(tl, code.lineEls.slice(0, 3), 0.5);
         let bar = code.bar([2]);
-        pythonCode.swipeIn(tl, bar, ">0.05");
+        codePanel.swipeIn(tl, bar, ">0.05");
         let leader = drawLeader(leaders, code.spanBox(2, 8, 18), [[800, 430], [520, 420], [440, 512]]);
         tl.from(leader.path, { drawSVG: 0, duration: 0.5, ease: "power2.out" }, "<0.1");
         tl.from(leader.dots, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, "<");
@@ -75,10 +75,10 @@
         ];
         steps.forEach(({ name, line, part, route }) => {
           tl.to(leader.g, { opacity: 0, duration: 0.2, ease: "power3.in" });
-          pythonCode.swipeOut(tl, bar, "<");
-          pythonCode.typeIn(tl, [code.lineEls[line]], tl.duration() - 0.05);
+          codePanel.swipeOut(tl, bar, "<");
+          codePanel.typeIn(tl, [code.lineEls[line]], tl.duration() - 0.05);
           bar = code.bar([line]);
-          pythonCode.swipeIn(tl, bar, ">0.05");
+          codePanel.swipeIn(tl, bar, ">0.05");
           tl.from(big.highlights[part], { drawSVG: 0, duration: 0.5, ease: "power2.out" }, "<");
           tl.from(big.nones[part], { scale: 0.4, opacity: 0, transformOrigin: "50% 50%", duration: 0.45, ease: "expo.out" }, "<0.15");
           writeIn(tl, parts[name], "<0.1", 0.35);
@@ -136,9 +136,9 @@
 
     function link(tl, { stage, code, big, leader, bar, props }) {
       tl.to(leader.g, { opacity: 0, duration: 0.2, ease: "power3.in" });
-      pythonCode.swipeOut(tl, bar, "<");
-      pythonCode.typeIn(tl, code.lineEls.slice(5), tl.duration() - 0.05);
-      pythonCode.swipeIn(tl, code.bar([6, 7]), ">0.05");
+      codePanel.swipeOut(tl, bar, "<");
+      codePanel.typeIn(tl, code.lineEls.slice(5), tl.duration() - 0.05);
+      codePanel.swipeIn(tl, code.bar([6, 7]), ">0.05");
       const small = drawBox(stage, SMALL, props.linked, "t56", `node-${props.linked}`);
       gsap.set([small.highlights[0], small.highlights[2]], { opacity: 0 });
       tl.from(small.g, { y: -80, opacity: 0, duration: 0.6, ease: "expo.out" }, "<0.2");

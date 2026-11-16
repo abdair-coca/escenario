@@ -1,0 +1,149 @@
+<!--
+  refs-not-code — the EXL Claude writes holds a file and a line range; the server copies those lines
+  from the real file into the viewer. A made-up range and a tag outside the catalogue are blocked.
+  The EXL and the code are quoted from the Explicador repo (examples/scenes/login.exl.md and
+  examples/shop/src/auth/password.js).
+-->
+<template>
+  <style>
+    .tag { font-size: 40px; font-weight: 700; fill: var(--ink); }
+    .tag--claude { fill: var(--accent); }
+    .panel { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .card { fill: none; stroke: var(--ok); stroke-width: 7; }
+    .ref-ring { fill: none; stroke: var(--accent); stroke-width: 6; }
+    .ref-ring--bad { stroke: var(--block); }
+    .arrow { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+    .arrow-head { fill: var(--accent); }
+    .arrow-label { font-family: var(--font-code); font-size: 40px; fill: var(--accent); letter-spacing: -0.03em; }
+    .ok-mark { fill: none; stroke: var(--ok); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+    .ok-text { font-size: 40px; font-weight: 700; fill: var(--ok); }
+    .stamp rect { fill: var(--paper); stroke: var(--block); stroke-width: 6; }
+    .stamp text { font-size: 40px; font-weight: 700; fill: var(--block); }
+    .swap { font-family: var(--font-code); font-size: 40px; letter-spacing: -0.03em; fill: var(--block); font-weight: 700; }
+    .swap-bg { fill: var(--paper); }
+    .bad-line { font-family: var(--font-code); font-size: 40px; fill: var(--block); letter-spacing: -0.03em; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const { codePanel } = window;
+    const EXL = [
+      '<concept term="Scrypt key" ref="src/auth/password.js:14-19">',
+      "<define>What scrypt makes from a password…</define>",
+      "</concept>",
+    ];
+    const FILE = [
+      "export async function verifyPassword(password, stored) {",
+      "  const [scheme, salt, expected] = stored.split('$');",
+      "  if (scheme !== 'scrypt' || !salt || !expected) return false;",
+      "  const key = await scryptAsync(password, salt, KEY_LENGTH);",
+      "  return timingSafeEqual(key, Buffer.from(expected, 'hex'));",
+      "}",
+    ];
+    const EXL_AT = { x: 200, y: 300 };
+    const FILE_AT = { x: 200, y: 650 };
+    const LINE = 56;
+    const REF = [EXL[0].indexOf("ref="), EXL[0].length - 1];
+    const RANGE = [EXL[0].indexOf("14-19"), EXL[0].indexOf("14-19") + 5];
+
+    registerScene({
+      id: "refs-not-code",
+      props: {},
+      steps: ["exl", "ref", "copia", "inventada", "catalogo"],
+      build(root, props, gsap) {
+        addStyles(root);
+        addStyles(root, codePanel.CSS);
+        // Three layers: panel outlines, then the code (HTML), then marks drawn over the code.
+        const under = canvas(root);
+        const exl = codePanel.render(root, EXL, { x: EXL_AT.x, y: EXL_AT.y, lang: "xml", lineHeight: LINE });
+        const file = codePanel.render(root, FILE, { x: FILE_AT.x, y: FILE_AT.y, lang: "js", lineHeight: LINE, numbers: 14 });
+        const over = canvas(root);
+        const tl = gsap.timeline();
+        const headline = block(root, "Claude no escribe el código que ves", { x: 160, y: 96, className: "t96" });
+        writeIn(tl, headline, 0, 0.6);
+
+        // exl
+        const exlPanel = svg("rect", { class: "panel", x: 160, y: 270, width: 1600, height: 230, rx: 16 }, under);
+        const exlTag = text(under, "Lo que escribe Claude · EXL", { class: "tag tag--claude", x: 160, y: 250 });
+        tl.from(exlPanel, { drawSVG: 0, fillOpacity: 0, duration: 0.6, ease: "power2.inOut" }, 0.3);
+        writeIn(tl, exlTag, 0.5, 0.4);
+        codePanel.typeIn(tl, exl.lineEls, 0.7);
+        gsap.set(file.lineEls, { clipPath: "inset(0 100% 0 0)" });
+        tl.addLabel("exl");
+
+        // ref: the reference is ringed, an arrow leads to the real file
+        let at = tl.duration();
+        const ref = exl.spanBox(0, REF[0], REF[1]);
+        const ringBox = { x: ref.x - 8, y: ref.y + 2, width: ref.width + 12, height: ref.height - 4, rx: 12 };
+        const ring = svg("rect", { class: "ref-ring", ...ringBox }, over);
+        const badRing = svg("rect", { class: "ref-ring ref-ring--bad", ...ringBox }, over);
+        gsap.set(badRing, { opacity: 0 });
+        const right = ringBox.x + ringBox.width;
+        const arrow = svg("path", { class: "arrow", d: `M${right},${ref.y + ref.height / 2} H1660 V590` }, over);
+        const head = svg("path", { class: "arrow-head", d: "M1660,616 l-16,-28 h32 Z" }, over);
+        const filePanel = svg("rect", { class: "panel", x: 160, y: 620, width: 1600, height: 380, rx: 16 }, under);
+        const fileTag = text(under, "password.js · 19 líneas", { class: "tag", x: 160, y: 600 });
+        tl.from(ring, { drawSVG: 0, fillOpacity: 0, duration: 0.5, ease: "power2.inOut" }, at);
+        tl.from(arrow, { drawSVG: 0, fillOpacity: 0, duration: 0.5, ease: "power2.inOut" }, at + 0.3);
+        tl.from(head, { scale: 0, transformOrigin: "50% 0%", duration: 0.25, ease: "expo.out" }, at + 0.75);
+        tl.from(filePanel, { drawSVG: 0, fillOpacity: 0, duration: 0.6, ease: "power2.inOut" }, at + 0.5);
+        writeIn(tl, fileTag, at + 0.7, 0.45);
+        codePanel.typeIn(tl, file.lineEls, at + 0.8, { perChar: 0.006 });
+        tl.addLabel("ref");
+
+        // copia: the server copies the lines; the file panel becomes a viewer card
+        at = tl.duration();
+        const serverLabel = text(over, "el servidor copia las líneas", { class: "arrow-label", x: 1630, y: 556, "text-anchor": "end" });
+        const card = svg("rect", { class: "card", x: 160, y: 620, width: 1600, height: 380, rx: 16 }, over);
+        // Beside line 19, which is only a brace.
+        const okMark = svg("path", { class: "ok-mark", d: "M360,950 l18,18 l36,-40" }, over);
+        const okText = text(over, "copiadas al visor", { class: "ok-text", x: 440, y: 972 });
+        writeIn(tl, serverLabel, at, 0.5);
+        tl.from(card, { drawSVG: 0, fillOpacity: 0, duration: 0.7, ease: "power2.inOut" }, at + 0.3);
+        tl.from(okMark, { drawSVG: 0, fillOpacity: 0, duration: 0.35, ease: "power2.out" }, at + 0.8);
+        writeIn(tl, okText, at + 0.95, 0.35);
+        tl.addLabel("copia");
+
+        // inventada: the range becomes 40-45; the file stops at 19, nothing reaches the viewer
+        at = tl.duration();
+        const range = exl.spanBox(0, RANGE[0], RANGE[1]);
+        const swapBg = svg("rect", { class: "swap-bg", x: range.x - 2, y: range.y + 8, width: range.width + 4, height: range.height - 16 }, over);
+        const swap = text(over, "40-45", { class: "swap", x: range.x, y: range.y + 42 });
+        tl.from([swapBg, swap], { opacity: 0, duration: 0.3, ease: "power2.out" }, at);
+        tl.to(ring, { opacity: 0, duration: 0.3, ease: "power2.inOut" }, at);
+        tl.to(badRing, { opacity: 1, duration: 0.3, ease: "power2.inOut" }, at);
+        tl.to([card, okMark, okText, serverLabel], { opacity: 0, duration: 0.25, ease: "power3.in" }, at + 0.2);
+        tl.to(file.block, { opacity: 0.2, duration: 0.3, ease: "power3.in" }, at + 0.2);
+        const blocked = stamp(over, ["No existe: el archivo tiene 19 líneas.", "No llega al visor."], 960, 810);
+        tl.from(blocked, { scale: 1.3, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at + 0.5);
+        tl.addLabel("inventada");
+
+        // catalogo: a <script> tag tries to enter the EXL and is rejected
+        at = tl.duration();
+        tl.to([blocked, swapBg, swap, badRing, arrow, head], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        tl.to([file.block, filePanel, fileTag], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        const bad = text(over, "<script>alert(1)<\/script>", { class: "bad-line", x: 640, y: EXL_AT.y + 2 * LINE + 42 });
+        tl.from(bad, { x: 600, opacity: 0, duration: 0.5, ease: "expo.out" }, at + 0.2);
+        const rejected = stamp(over, ["Etiqueta fuera del catálogo: rechazada.", "Sin JavaScript ni HTML crudo."], 960, 700);
+        tl.from(rejected, { scale: 1.3, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "expo.out" }, at + 0.7);
+        tl.addLabel("catalogo");
+        return tl;
+      },
+    });
+
+    // A red stamp with one or more lines, centred on (cx, cy).
+    function stamp(layer, lines, cx, cy) {
+      const g = svg("g", { class: "stamp" }, layer);
+      const rect = svg("rect", { rx: 12 }, g);
+      const texts = lines.map((line, i) => text(g, line, { class: "mid", x: cx, y: cy + (i - (lines.length - 1) / 2) * 56 }));
+      const width = Math.max(...texts.map((t) => t.getComputedTextLength())) + 64;
+      const height = lines.length * 56 + 40;
+      Object.entries({ x: cx - width / 2, y: cy - height / 2, width, height }).forEach(([k, v]) => rect.setAttribute(k, v));
+      return g;
+    }
+  })();
+</script>
