@@ -1,0 +1,83 @@
+:root {
+  --bg: #141414;
+  --panel: #1f1f1f;
+  --line: #333;
+  --text: #f4f1ea;
+  --muted: #a8a49b;
+  --accent: #ffb000;
+  --radius: 10px;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+}
+
+button {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.where { margin: 0; color: var(--muted); }
+.timer { display: flex; align-items: center; gap: 8px; }
+.timer__value { font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
+
+.layout {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 24px;
+  padding: 20px;
+  min-height: 0;
+}
+
+.now__title { margin: 0 0 4px; font-size: 28px; }
+.now__step { margin: 0 0 16px; color: var(--accent); font-size: 18px; }
+.now__note { margin: 0 0 24px; font-size: 30px; line-height: 1.35; white-space: pre-line; }
+
+.steps { margin: 0; padding-left: 24px; color: var(--muted); font-size: 16px; line-height: 1.8; }
+.steps .is-done { opacity: 0.5; }
+.steps .is-current { color: var(--text); font-weight: 700; }
+
+.next { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.next__heading { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.next__frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #000;
+}
+.next__frame iframe { width: 100%; height: 100%; border: 0; pointer-events: none; }
+.next__end { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--muted); }
+[hidden] { display: none !important; }
+.next__label { margin: 0; font-weight: 600; }
+.next__note { margin: 0; color: var(--muted); font-size: 18px; line-height: 1.4; }
+.controls { display: flex; gap: 8px; margin-top: auto; }
+
+@media (max-width: 800px) {
+  .layout { grid-template-columns: 1fr; }
+}

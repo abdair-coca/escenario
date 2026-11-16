@@ -1,0 +1,21 @@
+{
+  "name": "escenario",
+  "version": "0.1.0",
+  "description": "Animated presentations that look like an explainer video, narrated live by a human.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "serve -l 3000 .",
+    "vendor": "node scripts/vendor.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "check": "node scripts/check-syntax.mjs && npm test"
+  },
+  "dependencies": {
+    "gsap": "^3.15.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.1",
+    "serve": "^14.2.8"
+  }
+}

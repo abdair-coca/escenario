@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>escenario</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles/player.css" />
+    <script src="vendor/gsap/gsap.min.js"></script>
+    <script type="module" src="src/main.js"></script>
+  </head>
+  <body data-mode="live">
+    <main id="viewport">
+      <div id="stage" aria-live="polite"></div>
+    </main>
+    <div id="hud" class="hud" aria-hidden="true"></div>
+    <nav id="scene-index" class="scene-index" aria-label="Scene index" hidden></nav>
+    <section id="errors" class="errors" role="alert" hidden>
+      <h2>Something is wrong with this presentation</h2>
+      <ul></ul>
+    </section>
+  </body>
+</html>

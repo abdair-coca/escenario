@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Presenter · escenario</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles/presenter.css" />
+    <script type="module" src="src/presenter/presenter.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <p class="where"><span id="where">Waiting for the player…</span></p>
+      <div class="timer">
+        <output id="timer" class="timer__value" aria-label="Elapsed time">00:00</output>
+        <button id="timer-toggle" type="button">Pause (T)</button>
+        <button id="timer-reset" type="button">Reset (R)</button>
+      </div>
+    </header>
+    <main class="layout">
+      <section class="now" aria-labelledby="now-title">
+        <h1 id="now-title" class="now__title">—</h1>
+        <p id="now-step" class="now__step"></p>
+        <p id="now-note" class="now__note"></p>
+        <ol id="steps" class="steps"></ol>
+      </section>
+      <aside class="next" aria-labelledby="next-heading">
+        <h2 id="next-heading" class="next__heading">Next step</h2>
+        <div class="next__frame">
+          <iframe id="preview" title="Next step preview" tabindex="-1"></iframe>
+          <p id="the-end" class="next__end" hidden>End of the presentation</p>
+        </div>
+        <p id="next-label" class="next__label"></p>
+        <p id="next-note" class="next__note"></p>
+        <div class="controls">
+          <button id="back" type="button">← Back</button>
+          <button id="advance" type="button">Next →</button>
+        </div>
+      </aside>
+    </main>
+  </body>
+</html>

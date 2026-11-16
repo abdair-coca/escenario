@@ -1,0 +1,22 @@
+{
+  "title": "Contract fixture",
+  "lang": "en",
+  "theme": "theme.css",
+  "scenes": [
+    {
+      "scene": "scenes/mover",
+      "title": "Mover A",
+      "props": { "label": "first", "distance": 400 },
+      "notes": { "start": "note for start", "moved": "note for moved" }
+    },
+    {
+      "scene": "scenes/mover",
+      "title": "Mover B",
+      "props": { "label": "second", "distance": 800 },
+      "transition": { "type": "push", "direction": "left" }
+    },
+    { "scene": "scenes/mover", "title": "Mover C", "transition": { "type": "wipe" } },
+    { "scene": "scenes/mover", "title": "Mover D", "transition": { "type": "zoom", "target": ".box" } },
+    { "scene": "scenes/mover", "title": "Mover E", "transition": { "type": "reveal", "target": ".box" } }
+  ]
+}

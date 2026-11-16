@@ -1,0 +1,33 @@
+<!-- Test fixture: a box that moves `distance` px on the second step; the third step shows text that is too small on purpose. -->
+<template>
+  <style>
+    .box { position: absolute; left: 200px; top: 300px; width: 200px; height: 200px; background: var(--accent); }
+    .label { position: absolute; left: 200px; top: 560px; margin: 0; font-size: 48px; }
+    .tiny { position: absolute; left: 200px; top: 700px; margin: 0; font-size: 20px; opacity: 0; }
+  </style>
+  <div class="box"></div>
+  <p class="label"></p>
+  <p class="tiny">small print</p>
+</template>
+<script>
+  registerScene({
+    id: "mover",
+    props: {
+      label: "hello", // text under the box
+      distance: 400, // px the box travels on step "moved"
+    },
+    steps: ["start", "moved", "tiny"],
+    build(root, props, gsap) {
+      const box = root.querySelector(".box");
+      root.querySelector(".label").textContent = props.label;
+      return gsap
+        .timeline({ paused: true })
+        .from(box, { opacity: 0, duration: 0.3, ease: "expo.out" })
+        .addLabel("start")
+        .to(box, { x: props.distance, duration: 0.5, ease: "expo.out" })
+        .addLabel("moved")
+        .to(root.querySelector(".tiny"), { opacity: 1, duration: 0.2 })
+        .addLabel("tiny");
+    },
+  });
+</script>
