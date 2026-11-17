@@ -1,0 +1,222 @@
+{
+  "title": "Triggers y cursores para desnormalizar",
+  "lang": "es",
+  "theme": "theme.css",
+  "scenes": [
+    {
+      "scene": "library/pipeline",
+      "title": "Un dato, dos sitios",
+      "props": {
+        "title": "Un dato, dos sitios",
+        "elements": [
+          { "id": "lines", "kind": "piece", "label": "OrderLines", "detail": "8 + 3 + 15", "mono": true, "x": 160, "y": 400, "width": 520 },
+          { "id": "sum", "kind": "piece", "label": "SUM", "detail": "qty × precio", "mono": true, "x": 800, "y": 400, "width": 360 },
+          { "id": "total", "kind": "piece", "label": "Orders.Total", "detail": "26", "mono": true, "x": 1300, "y": 400, "width": 460 },
+          { "id": "l-ls", "kind": "link", "from": "lines", "to": "sum" },
+          { "id": "l-st", "kind": "link", "from": "sum", "to": "total", "label": "guardado", "labelAt": [1165, 372] },
+          { "id": "pin-drift", "kind": "pin", "text": ["se borra una línea", "el total sigue en 26"], "at": [1330, 700], "to": [1520, 556] }
+        ],
+        "entrance": [],
+        "steps": [
+          { "name": "lines", "add": ["lines"] },
+          { "name": "sum", "add": ["l-ls", "sum"] },
+          { "name": "copy", "add": ["l-st", "total"] },
+          { "name": "drift", "add": ["pin-drift"] }
+        ]
+      },
+      "transition": { "type": "cut" },
+      "notes": {
+        "lines": "Para saber el total sumamos tres filas. Cada listado de pedidos haría esa suma otra vez.",
+        "sum": "Leer es caro cuando la respuesta sale de una suma.",
+        "copy": "Desnormalizar: guardamos la respuesta junto al pedido. Leer ya no suma nada.",
+        "drift": "Ahora el mismo dato está en dos sitios. El precio de la copia es mantenerla al día."
+      }
+    },
+    {
+      "scene": "scenes/trigger-in-ssms",
+      "title": "Un trigger en SSMS",
+      "transition": { "type": "wipe" },
+      "notes": {
+        "tree": "Así lo encuentras en SSMS: dentro de la tabla, en Triggers.",
+        "insert": "Cualquier INSERT, UPDATE o DELETE sobre OrderLines.",
+        "fires": "SQL Server lo ejecuta solo. Nadie lo llama.",
+        "tx": "La línea y el total se guardan juntos, o no se guarda ninguno.",
+        "kinds": "Usamos AFTER: el cambio ya está hecho y el trigger corrige el total."
+      }
+    },
+    {
+      "scene": "scenes/once-per-statement",
+      "title": "Una vez por sentencia",
+      "transition": { "type": "push", "direction": "left" },
+      "notes": {
+        "statement": "Una sentencia, tres filas.",
+        "fan": "Muchos esperan un disparo por fila. En SQL Server no hay FOR EACH ROW.",
+        "once": "Un solo disparo por sentencia.",
+        "inserted": "inserted es una tabla con todas las filas. El código la trata como conjunto, no como una fila."
+      }
+    },
+    {
+      "scene": "library/result-grid",
+      "title": "Un UPDATE tiene dos imágenes",
+      "props": {
+        "title": "Un UPDATE tiene dos imágenes",
+        "columns": [
+          { "label": "imagen", "width": 400 },
+          { "label": "producto", "width": 500 },
+          { "label": "qty", "width": 300, "align": "end" },
+          { "label": "subtotal", "width": 400, "align": "end" }
+        ],
+        "rows": [
+          { "id": "old", "cells": ["deleted", "Zumo", "3", "15"], "tone": "block" },
+          { "id": "new", "cells": ["inserted", "Zumo", "2", "10"], "tone": "ok" },
+          { "id": "delta", "cells": ["diferencia", "", "", "−5"], "tone": "accent" },
+          { "id": "total", "cells": ["Orders.Total", "", "", "29 → 24"], "tone": "accent" }
+        ],
+        "steps": [
+          { "name": "deleted", "show": ["old"], "text": "Antes del cambio, la imagen vieja está en deleted." },
+          { "name": "inserted", "show": ["new"], "text": "Después, la imagen nueva está en inserted. Las dos vienen de la misma sentencia." },
+          { "name": "delta", "show": ["delta", "total"], "text": "Diferencia: 10 − 15 = −5. El total baja de 29 a 24." }
+        ]
+      },
+      "transition": { "type": "zoom", "target": ".grid-inserted" },
+      "notes": {
+        "deleted": "La imagen vieja de la línea está en deleted.",
+        "inserted": "La imagen nueva está en inserted. Las dos vienen de la misma sentencia.",
+        "delta": "Puedes aplicar la diferencia o recalcular. La siguiente escena recalcula: sirve también para DELETE y para varias filas a la vez."
+      }
+    },
+    {
+      "scene": "scenes/recalc-trigger",
+      "title": "El trigger de recálculo",
+      "transition": { "type": "push", "direction": "up" },
+      "notes": {
+        "affected": "Los pedidos que tocó esta sentencia: los de inserted y los de deleted. Así un DELETE también entra.",
+        "sum": "Recalculamos en lugar de sumar la diferencia: el resultado es el mismo aunque cambien varias filas a la vez.",
+        "update": "Un UPDATE para todos los pedidos afectados, no uno por fila.",
+        "result": "Lo probamos en SSMS en la siguiente escena."
+      }
+    },
+    {
+      "scene": "scenes/ssms-run",
+      "title": "Probarlo en SSMS",
+      "transition": { "type": "reveal", "target": ".trigger-code", "duration": 1.2 },
+      "notes": {
+        "start": "Partimos de 26: la suma de las tres líneas.",
+        "insert": "Solo un mensaje. El UPDATE del trigger no aparece porque el trigger tiene SET NOCOUNT ON.",
+        "delete": "Un DELETE también dispara el trigger: la fila vieja está en deleted y el total baja.",
+        "update": "Tres sentencias, un solo trigger.",
+        "check": "Comprobación: el total guardado y la suma de las líneas deben ser iguales. Si no lo son, la copia se desvió."
+      }
+    },
+    {
+      "scene": "scenes/cursor-loop",
+      "title": "El cursor, fila a fila",
+      "transition": { "type": "wipe" },
+      "notes": {
+        "declare": "Un cursor es una consulta cuyas filas visitas una por una.",
+        "fetch": "FETCH avanza a la siguiente fila y copia sus valores a variables.",
+        "loop": "@@FETCH_STATUS = 0 quiere decir que la última lectura trajo una fila.",
+        "body": "Una sentencia por fila. Con 10 000 pedidos, 10 000 UPDATE.",
+        "close": "CLOSE suelta las filas; DEALLOCATE libera el cursor. Hay que hacer los dos."
+      }
+    },
+    {
+      "scene": "scenes/cursor-in-trigger",
+      "title": "Cursor dentro del trigger: el error",
+      "transition": { "type": "zoom", "target": ".loop" },
+      "notes": {
+        "rows": "Una sentencia, tres filas, un pedido.",
+        "cursor": "Un cursor dentro del trigger recalcula 1042 tres veces. Con mil líneas, mil sumas del mismo pedido.",
+        "set": "El mismo resultado con una sola sentencia.",
+        "rule": "inserted y deleted ya son tablas: úsalas en un JOIN o en un IN."
+      }
+    },
+    {
+      "scene": "scenes/backfill-choice",
+      "title": "Datos existentes: lotes, no cursor",
+      "transition": { "type": "push", "direction": "down" },
+      "notes": {
+        "set": "La primera opción siempre. Un UPDATE con un agregado suele bastar.",
+        "batch": "Cada lote se confirma por separado: los bloqueos duran poco y puedes parar y reanudar.",
+        "cursor": "El cursor es para trabajo por fila que no es un JOIN: llamar un procedimiento o una API por cada fila.",
+        "rule": "Antes de escribir un cursor, pregunta si cabe en un JOIN."
+      }
+    },
+    {
+      "scene": "scenes/two-sessions",
+      "title": "Dos sesiones a la vez",
+      "transition": { "type": "wipe" },
+      "notes": {
+        "start": "Dos cajas añaden una línea al mismo pedido al mismo tiempo.",
+        "a": "El trigger de A suma su línea, que todavía no está confirmada, y escribe 32.",
+        "b": "B leyó 30 antes de que A confirmara, y no ve la línea de A. Para verlo hay que tener RCSI, no tener clave foránea y leer el total en una sentencia y escribirlo en otra. En mi prueba, con clave foránea, no se pierde nada.",
+        "lost": "Gana la última escritura y una línea desaparece del total.",
+        "fix": "Bloquea el pedido antes de sumar, o aplica la diferencia con un UPDATE atómico."
+      }
+    },
+    {
+      "scene": "library/pipeline",
+      "title": "Alternativa: vista indexada",
+      "props": {
+        "title": "Alternativa: vista indexada",
+        "elements": [
+          { "id": "lines", "kind": "piece", "label": "OrderLines", "detail": "qty × precio", "mono": true, "x": 160, "y": 400, "width": 520 },
+          { "id": "view", "kind": "piece", "label": "vOrderTotals", "detail": "OrderId · Total · Lines", "mono": true, "shape": "sheet", "x": 880, "y": 400, "width": 820 },
+          { "id": "l-lv", "kind": "link", "from": "lines", "to": "view" },
+          { "id": "c1", "kind": "check", "text": "WITH SCHEMABINDING", "x": 160, "y": 640 },
+          { "id": "c2", "kind": "check", "text": "COUNT_BIG(*)", "x": 160, "y": 715 },
+          { "id": "c3", "kind": "check", "text": "columnas NOT NULL", "x": 160, "y": 790 },
+          { "id": "c4", "kind": "check", "text": "sin OUTER JOIN ni subconsultas", "x": 160, "y": 865 },
+          { "id": "c5", "kind": "check", "text": "índice agrupado único en OrderId", "x": 160, "y": 940 },
+          { "id": "pin-limit", "kind": "pin", "text": ["es una vista, no", "una columna de Orders"], "at": [1330, 720], "to": [1500, 556] }
+        ],
+        "entrance": [],
+        "steps": [
+          { "name": "lines", "add": ["lines"] },
+          { "name": "view", "add": ["l-lv", "view"] },
+          { "name": "rules", "add": ["c1", "c2", "c3", "c4", "c5"] },
+          { "name": "limit", "add": ["pin-limit"] }
+        ]
+      },
+      "transition": { "type": "push", "direction": "left" },
+      "notes": {
+        "lines": "Aquí no hay código de trigger.",
+        "view": "SQL Server guarda el resultado y lo mantiene al día en cada escritura.",
+        "rules": "Si una regla falla, el CREATE UNIQUE CLUSTERED INDEX da error y la vista no llega a ser indexada. Hay que cumplirlas desde el principio.",
+        "limit": "Si otras consultas necesitan Orders.Total como columna, el trigger sigue siendo la herramienta. Además, cada escritura bloquea la fila del resumen."
+      }
+    },
+    {
+      "scene": "library/result-grid",
+      "title": "Cuándo cada herramienta",
+      "props": {
+        "title": "Cuándo cada herramienta",
+        "columns": [
+          { "label": "Situación", "width": 700 },
+          { "label": "Herramienta", "width": 900 }
+        ],
+        "rows": [
+          { "id": "r1", "cells": ["Copia exacta, misma transacción", "Trigger set-based o vista indexada"], "tone": "ok", "mark": "ok" },
+          { "id": "r2", "cells": ["Backfill de muchas filas", "UPDATE por lotes"], "tone": "accent" },
+          { "id": "r3", "cells": ["Trabajo por fila, sin JOIN", "Cursor, fuera del trigger"], "tone": "muted" },
+          { "id": "r4", "cells": ["Dentro de un trigger, por fila", "Nunca: usa conjuntos"], "tone": "block", "mark": "block" }
+        ],
+        "steps": [
+          { "name": "trigger", "show": ["r1"] },
+          { "name": "lotes", "show": ["r2"] },
+          { "name": "cursor", "show": ["r3"] },
+          { "name": "nunca", "show": ["r4"] },
+          { "name": "idea", "text": "Denormalizar guarda la respuesta. El trigger la mantiene por conjunto; el cursor, solo si hace falta." }
+        ]
+      },
+      "transition": { "type": "push", "direction": "left" },
+      "notes": {
+        "trigger": "Lo más común: la copia tiene que estar bien al confirmar.",
+        "lotes": "Los datos viejos se rellenan en lotes.",
+        "cursor": "El cursor queda para trabajo por fila que un JOIN no expresa.",
+        "nunca": "Lo que no hacer: un cursor sobre inserted.",
+        "idea": "Cerramos con la idea: denormalizar guarda la respuesta, y el trigger la mantiene al día por conjunto."
+      }
+    }
+  ]
+}

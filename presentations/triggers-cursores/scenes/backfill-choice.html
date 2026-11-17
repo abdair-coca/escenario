@@ -1,0 +1,137 @@
+<!--
+  backfill-choice — for rows that already exist: one set-based UPDATE if one statement can do it; batches
+  when the table is large and locks would be long; a cursor only for per-row work that a join cannot express.
+  The batch loop is shown in full; it commits each batch on its own.
+-->
+<template>
+  <style>
+    .box { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+    .hl { fill: none; stroke-width: 9; }
+    .hl--ok { stroke: var(--ok); }
+    .hl--accent { stroke: var(--accent); }
+    .hl--ink { stroke: var(--ink); }
+    .question { font-size: 40px; font-weight: 700; fill: var(--ink); }
+    .answer { font-size: 40px; font-weight: 500; }
+    .answer--ok { fill: var(--ok); }
+    .answer--accent { fill: var(--accent); }
+    .answer--ink { fill: var(--ink); font-weight: 700; }
+    .arrow { fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: round; }
+    .arrow-head { fill: var(--ink); }
+    .muted { font-size: 40px; font-weight: 500; fill: var(--muted); }
+    .big-ok { font-size: 96px; font-weight: 700; fill: var(--ok); }
+    .cursor-line { font-family: var(--font-code); font-size: 40px; font-weight: 700; fill: var(--ink); letter-spacing: -0.03em; }
+    .rule { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    /* A pale highlight, so the violet keywords stay readable on it. */
+    .code__bar { opacity: 0.25; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const { codePanel } = window;
+    const CENTER = { "dominant-baseline": "central" };
+    const LINE = 40;
+    const BATCH = [
+      "WHILE 1 = 1",
+      "BEGIN",
+      "  UPDATE TOP (5000) o",
+      "  SET o.Total = ISNULL(x.Total, 0)",
+      "  FROM dbo.Orders AS o",
+      "  CROSS APPLY (",
+      "    SELECT SUM(Qty*UnitPrice) AS Total",
+      "    FROM dbo.OrderLines AS l",
+      "    WHERE l.OrderId = o.OrderId",
+      "  ) AS x",
+      "  WHERE o.Total <> ISNULL(x.Total, 0);",
+      "  IF @@ROWCOUNT = 0 BREAK;",
+      "END;",
+    ];
+
+    registerScene({
+      id: "backfill-choice",
+      props: {},
+      steps: ["set", "batch", "cursor", "rule"],
+      build(root, props, gsap) {
+        addStyles(root);
+        addStyles(root, codePanel.CSS);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Datos existentes: lotes, no cursor", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // The three questions, one under the other. Each "no" leads to the next question.
+        const questions = [
+          { y: 260, q: "¿Una sola sentencia basta?", a: "sí → UPDATE con JOIN", cls: "answer--ok" },
+          { y: 440, q: "¿Tabla grande, bloqueos largos?", a: "sí → lotes de 5000", cls: "answer--accent" },
+          { y: 620, q: "¿Cada fila llama a un servicio?", a: "sí → cursor", cls: "answer--ink" },
+        ];
+        const boxes = questions.map((item) => [
+          svg("rect", { class: "box", x: 120, y: item.y, width: 680, height: 130, rx: 14 }, stage),
+          text(stage, item.q, { class: "question", x: 150, y: item.y + 50, ...CENTER }),
+          text(stage, item.a, { class: `answer ${item.cls}`, x: 150, y: item.y + 100, ...CENTER }),
+        ]);
+        // y is the bottom of a question box; the next box starts 50 px lower.
+        const arrows = [390, 570].map((y) => [
+          svg("path", { class: "arrow", d: `M460,${y} V${y + 34}` }, stage),
+          svg("path", { class: "arrow-head", d: `M460,${y + 50} L444,${y + 34} L476,${y + 34} Z` }, stage),
+          text(stage, "no", { class: "muted", x: 492, y: y + 25, ...CENTER }),
+        ]);
+        const highlights = questions.map((item, i) => svg("rect", { class: `hl hl--${["ok", "accent", "ink"][i]}`, x: 110, y: item.y - 10, width: 700, height: 150, rx: 18 }, stage));
+
+        // set: one statement, one word on the right
+        const bigOne = text(stage, "1 sentencia", { class: "big-ok", x: 872, y: 340, ...CENTER });
+        const bigSub = text(stage, "para todos los pedidos", { class: "muted", x: 872, y: 420, ...CENTER });
+
+        // batch: the loop, drawn on the right
+        const code = codePanel.render(root, BATCH, { x: 872, y: 260, lang: "sql", lineHeight: LINE, numbers: 1 });
+        gsap.set(code.block, { opacity: 0 });
+
+        // cursor: the cursor declaration, for the third question
+        const cursorLines = [
+          text(stage, "DECLARE c CURSOR LOCAL FAST_FORWARD", { class: "cursor-line", x: 872, y: 830, ...CENTER }),
+          text(stage, "  FOR SELECT OrderId FROM dbo.Orders;", { class: "cursor-line", x: 872, y: 880, ...CENTER }),
+        ];
+
+        // rule: the closing sentences
+        const rule = [
+          text(stage, "Trigger: conjuntos. Datos viejos: conjuntos o lotes.", { class: "rule", x: 120, y: 940, ...CENTER }),
+          text(stage, "Cursor: solo para trabajo por fila que un JOIN no expresa.", { class: "rule", x: 120, y: 990, ...CENTER }),
+        ];
+
+        // Highlights start hidden, except the first one, which is the starting picture.
+        // cursorLines and rule are hidden by writeIn itself, so they are not set to opacity 0 here.
+        tl.set(highlights.slice(1), { opacity: 0 }, 0);
+        tl.from([...boxes.flat(), ...arrows.flat()], { opacity: 0, duration: 0.4, ease: "power2.out" }, 0.2);
+        tl.from(highlights[0], { opacity: 0, duration: 0.3, ease: "power2.out" }, 0.4);
+        writeIn(tl, bigOne, 0.6, 0.6);
+        writeIn(tl, bigSub, 0.9, 0.5);
+        tl.addLabel("set");
+
+        // batch: the first question is answered; the batch loop replaces the big word
+        let at = tl.duration();
+        tl.to(highlights[0], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        tl.to([bigOne, bigSub], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        tl.to(highlights[1], { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.2);
+        tl.to(code.block, { opacity: 1, duration: 0.4, ease: "power2.out" }, at + 0.3);
+        codePanel.typeIn(tl, code.lineEls, at + 0.3, { perChar: 0.003 });
+        tl.addLabel("batch");
+
+        // cursor: the third question, and its declaration
+        at = tl.duration();
+        tl.to(highlights[1], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        tl.to(highlights[2], { opacity: 1, duration: 0.3, ease: "power2.out" }, at);
+        cursorLines.forEach((line, i) => writeIn(tl, line, at + 0.3 + i * 0.25, 0.45));
+        tl.addLabel("cursor");
+
+        // rule: the closing sentences
+        at = tl.duration();
+        tl.to(highlights[2], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        rule.forEach((line, i) => writeIn(tl, line, at + 0.2 + i * 0.3, 0.5));
+        tl.addLabel("rule");
+        return tl;
+      },
+    });
+  })();
+</script>

@@ -1,0 +1,108 @@
+<!--
+  ssms-run — the same three statements in a simplified SSMS query window. The results grid shows the
+  total after each one; Messages shows one "(1 row affected)" per statement, and none from the trigger.
+-->
+<template>
+  <style>
+    .panel { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+    .panel-head { fill: var(--header); }
+    .tree { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .muted { fill: var(--muted); }
+    .code { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .msg { font-family: var(--font-code); font-size: 40px; fill: var(--muted); letter-spacing: -0.03em; }
+    .active { fill: var(--accent); fill-opacity: 0.14; stroke: var(--accent); stroke-width: 3; }
+    .total { font-size: 56px; font-weight: 700; fill: var(--ink); }
+    .total--block { fill: var(--block); }
+    .ok-text { font-size: 40px; font-weight: 700; fill: var(--ok); }
+    .line-sum { font-family: var(--font-code); font-size: 56px; font-weight: 700; fill: var(--ink); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const CENTER = { "dominant-baseline": "central" };
+    const STATEMENTS = [
+      { y: 370, t: "INSERT dbo.OrderLines VALUES (1042, 'Croissant', 2, 3);" },
+      { y: 430, t: "DELETE dbo.OrderLines WHERE LineId = 2;" },
+      { y: 490, t: "UPDATE dbo.OrderLines SET Qty = 2 WHERE LineId = 3;" },
+    ];
+
+    registerScene({
+      id: "ssms-run",
+      props: {},
+      steps: ["start", "insert", "delete", "update", "check"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Probarlo en SSMS", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // The query window
+        const windowFrame = svg("rect", { class: "panel", x: 160, y: 250, width: 1600, height: 760, rx: 14 }, stage);
+        const tabBar = svg("rect", { class: "panel-head", x: 160, y: 250, width: 1600, height: 64, rx: 14 }, stage);
+        const tabLabel = text(stage, "Pedidos.sql", { class: "tree muted", x: 200, y: 282, ...CENTER });
+        const active = STATEMENTS.map((s) => svg("rect", { class: "active", x: 184, y: s.y - 28, width: 1552, height: 56, rx: 8 }, stage));
+        const statements = STATEMENTS.map((s) => text(stage, s.t, { class: "code", x: 200, y: s.y, ...CENTER }));
+
+        // The results grid: OrderId and Total, and LinesSum once the check runs
+        const gridHead = svg("rect", { class: "panel-head", x: 184, y: 530, width: 1552, height: 60 }, stage);
+        const headOrder = text(stage, "OrderId", { class: "tree muted", x: 220, y: 560, ...CENTER });
+        const headTotal = text(stage, "Total", { class: "tree muted", x: 560, y: 560, ...CENTER });
+        const headLines = text(stage, "LinesSum", { class: "tree muted", x: 960, y: 560, ...CENTER });
+        const orderId = text(stage, "1042", { class: "code", x: 220, y: 630, ...CENTER });
+        const totals = [26, 32, 29, 24].map((v) => text(stage, String(v), { class: "total", x: 560, y: 630, ...CENTER }));
+        const linesSum = text(stage, "24", { class: "line-sum", x: 960, y: 630, ...CENTER });
+        const checkText = text(stage, "24 = 24", { class: "ok-text", x: 1200, y: 630, ...CENTER });
+
+        // Messages: one line per statement
+        const msgHead = svg("rect", { class: "panel-head", x: 184, y: 700, width: 1552, height: 60 }, stage);
+        const msgLabel = text(stage, "Mensajes", { class: "tree muted", x: 220, y: 730, ...CENTER });
+        const messages = [0, 1, 2].map((i) => text(stage, "(1 row affected)", { class: "msg", x: 220, y: 800 + i * 56, ...CENTER }));
+
+        // Hidden until their step: the highlights, the later totals, the LinesSum column, the messages
+        tl.set([...active, ...totals.slice(1), headLines, linesSum, checkText, ...messages], { opacity: 0 }, 0);
+
+        // start: the statements and the total 26 (the first step is the starting picture)
+        tl.from([windowFrame, tabBar, tabLabel, gridHead, headOrder, headTotal, orderId, totals[0], msgHead, msgLabel], { opacity: 0, duration: 0.4, ease: "power2.out" }, 0.2);
+        statements.forEach((s, i) => writeIn(tl, s, 0.6 + i * 0.2, 0.45));
+        tl.addLabel("start");
+
+        // insert: line 1 runs, 26 becomes 32
+        let at = tl.duration();
+        tl.to(active[0], { opacity: 1, duration: 0.3, ease: "power2.out" }, at);
+        tl.to(totals[0], { opacity: 0, duration: 0.25, ease: "power3.in" }, at + 0.3);
+        tl.to(totals[1], { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.5);
+        tl.to(messages[0], { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.5);
+        tl.addLabel("insert");
+
+        // delete: line 2 runs, 32 becomes 29
+        at = tl.duration();
+        tl.to(active[0], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        tl.to(active[1], { opacity: 1, duration: 0.3, ease: "power2.out" }, at);
+        tl.to(totals[1], { opacity: 0, duration: 0.25, ease: "power3.in" }, at + 0.3);
+        tl.to(totals[2], { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.5);
+        tl.to(messages[1], { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.5);
+        tl.addLabel("delete");
+
+        // update: line 3 runs, 29 becomes 24
+        at = tl.duration();
+        tl.to(active[1], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        tl.to(active[2], { opacity: 1, duration: 0.3, ease: "power2.out" }, at);
+        tl.to(totals[2], { opacity: 0, duration: 0.25, ease: "power3.in" }, at + 0.3);
+        tl.to(totals[3], { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.5);
+        tl.to(messages[2], { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.5);
+        tl.addLabel("update");
+
+        // check: the lines add up to the stored total
+        at = tl.duration();
+        tl.to(active[2], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        tl.to([headLines, linesSum], { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.1);
+        tl.to(checkText, { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.4);
+        tl.addLabel("check");
+        return tl;
+      },
+    });
+  })();
+</script>

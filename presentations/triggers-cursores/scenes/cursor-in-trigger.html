@@ -1,0 +1,97 @@
+<!--
+  cursor-in-trigger — three lines of order 1042 arrive in one INSERT. A cursor inside the trigger recalculates
+  the same order once per row (three times); a set-based trigger recalculates it once.
+  Red is the cursor path, green the set-based one.
+-->
+<template>
+  <style>
+    .muted { font-size: 40px; font-weight: 500; fill: var(--muted); }
+    .row { fill: var(--paper); stroke: var(--ink); stroke-width: 3; }
+    .row-text { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .lane-label { font-size: 40px; font-weight: 700; }
+    .lane-label--block { fill: var(--block); }
+    .lane-label--ok { fill: var(--ok); }
+    .pass { fill: var(--paper); stroke-width: 5; }
+    .pass--block { stroke: var(--block); }
+    .pass--ok { stroke: var(--ok); }
+    .pass-text { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .counter { font-size: 56px; font-weight: 700; }
+    .counter--block { fill: var(--block); }
+    .counter--ok { fill: var(--ok); }
+    .rule { font-size: 56px; font-weight: 700; fill: var(--ink); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const CENTER = { "dominant-baseline": "central" };
+
+    registerScene({
+      id: "cursor-in-trigger",
+      props: {},
+      steps: ["rows", "cursor", "set", "rule"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Cursor en el trigger", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // rows: one INSERT, three lines of order 1042
+        const rowsLabel = text(stage, "un INSERT con tres líneas del pedido 1042", { class: "muted", x: 160, y: 300, ...CENTER });
+        const rows = ["línea 4", "línea 5", "línea 6"].map((name, i) => [
+          svg("rect", { class: "row", x: 160, y: 340 + i * 80, width: 620, height: 56, rx: 8 }, stage),
+          text(stage, `${name} · pedido 1042`, { class: "row-text", x: 190, y: 368 + i * 80, ...CENTER }),
+        ]);
+
+        // rule: the sentence at the top right
+        const rule = [
+          text(stage, "Dentro de un trigger,", { class: "rule", x: 900, y: 380, ...CENTER }),
+          text(stage, "primero conjuntos.", { class: "rule", x: 900, y: 450, ...CENTER }),
+        ];
+
+        // cursor: the red lane. Three passes over the same order, one per row.
+        const cursorLabel = text(stage, "cursor dentro del trigger", { class: "lane-label lane-label--block", x: 160, y: 600, ...CENTER });
+        const passes = [160, 500, 840].map((x, i) => [
+          svg("rect", { class: "pass pass--block", x, y: 640, width: 300, height: 110, rx: 10 }, stage),
+          text(stage, `pasada ${i + 1}`, { class: "pass-text", x: x + 150, y: 680, "text-anchor": "middle", ...CENTER }),
+          text(stage, "pedido 1042", { class: "pass-text", x: x + 150, y: 720, "text-anchor": "middle", ...CENTER }),
+        ]);
+        const cursorCount = text(stage, "recálculos: 3", { class: "counter counter--block", x: 1240, y: 700, ...CENTER });
+
+        // set: the green lane. One pass for the whole statement.
+        const setLabel = text(stage, "trigger con conjuntos", { class: "lane-label lane-label--ok", x: 160, y: 830, ...CENTER });
+        const setPass = [
+          svg("rect", { class: "pass pass--ok", x: 160, y: 870, width: 300, height: 110, rx: 10 }, stage),
+          text(stage, "pasada 1", { class: "pass-text", x: 310, y: 910, "text-anchor": "middle", ...CENTER }),
+          text(stage, "pedido 1042", { class: "pass-text", x: 310, y: 950, "text-anchor": "middle", ...CENTER }),
+        ];
+        const setCount = text(stage, "recálculos: 1", { class: "counter counter--ok", x: 1240, y: 930, ...CENTER });
+
+        // rows: the first step is the starting picture
+        tl.from([rowsLabel, ...rows.flat()], { opacity: 0, duration: 0.4, ease: "power2.out" }, 0.2);
+        tl.addLabel("rows");
+
+        // cursor: the three passes, then the counter
+        let at = tl.duration();
+        tl.from([cursorLabel], { opacity: 0, duration: 0.3, ease: "power2.out" }, at);
+        passes.forEach((pass, i) => tl.from(pass, { opacity: 0, duration: 0.35, ease: "power2.out" }, at + 0.2 + i * 0.35));
+        writeIn(tl, cursorCount, at + 1.3, 0.5);
+        tl.addLabel("cursor");
+
+        // set: one pass
+        at = tl.duration();
+        tl.from([setLabel, ...setPass], { opacity: 0, duration: 0.35, ease: "power2.out" }, at);
+        writeIn(tl, setCount, at + 0.4, 0.5);
+        tl.addLabel("set");
+
+        // rule: the sentence
+        at = tl.duration();
+        rule.forEach((line, i) => writeIn(tl, line, at + i * 0.25, 0.5));
+        tl.addLabel("rule");
+        return tl;
+      },
+    });
+  })();
+</script>

@@ -1,0 +1,156 @@
+<!--
+  result-grid — a table drawn like the results grid of SSMS. Rows appear one per step, written in cell
+  by cell. A row can carry a tone (ok, block, accent, muted) and a mark (ok = ticked box, block = crossed box).
+  Everything comes from props:
+    title    headline, top left
+    columns  [{ label, width, align?: "start" | "end" }]   align "end" for numbers
+    rows     [{ id, cells: [text…], tone?, mark? }]        cells in column order
+    steps    [{ name, show?: [row ids], text?: "sentence" }]
+             `show` lists the rows that appear with this step. `text` is a sentence under the table;
+             the previous sentence goes out first.
+    x, y     table top-left in canvas px (default 120, 300)
+    textY    top of the sentence under the table (default 880)
+-->
+<template>
+  <style>
+    .frame { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+    .head-band { fill: var(--header); }
+    .head-label { font-size: 40px; font-weight: 700; fill: var(--muted); }
+    .col-rule { stroke: var(--grid); stroke-width: 3; }
+    .rule { stroke: var(--grid); stroke-width: 3; }
+    .row-band { fill: var(--paper); }
+    .row-bar { fill: var(--muted); }
+    .cell { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .row--ok .row-bar { fill: var(--ok); }
+    .row--ok .cell { fill: var(--ok); font-weight: 700; }
+    .row--block .row-bar { fill: var(--block); }
+    .row--block .cell { fill: var(--block); font-weight: 700; }
+    .row--accent .row-bar { fill: var(--accent); }
+    .row--accent .cell { fill: var(--accent); font-weight: 700; }
+    .row--muted .cell { fill: var(--muted); }
+    .mark-box { fill: none; stroke: var(--ink); stroke-width: 4; }
+    .mark-ok { fill: none; stroke: var(--ok); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+    .mark-block { fill: none; stroke: var(--block); stroke-width: 8; stroke-linecap: round; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const ROW = 96; // height of one row
+    const HEAD = 80; // height of the header row
+    const GUTTER = 90; // column for marks; only drawn when some row has a mark
+    const PAD = 24; // inner padding of a cell
+    const BOX = 52; // size of a mark box
+
+    registerScene({
+      id: "result-grid",
+      props: {
+        title: "Result grid", // headline, top left
+        columns: [], // [{ label, width, align? }]
+        rows: [], // [{ id, cells, tone?, mark? }]
+        steps: [], // [{ name, show?, text? }]
+        x: 120, // table top-left, canvas px
+        y: 300,
+        textY: 880, // top of the sentence under the table
+      },
+      steps: (props) => props.steps.map((step) => step.name),
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, props.title, { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        const gutter = props.rows.some((row) => row.mark) ? GUTTER : 0;
+        const width = gutter + props.columns.reduce((sum, col) => sum + col.width, 0);
+        const bottom = props.y + HEAD + props.rows.length * ROW;
+        const colX = (j) => props.x + gutter + props.columns.slice(0, j).reduce((sum, col) => sum + col.width, 0);
+
+        // Entrance: frame, header band and header labels. Rows are added by the steps.
+        const frame = svg("rect", { class: "frame", x: props.x, y: props.y, width, height: bottom - props.y, rx: 6 }, stage);
+        const rows = svg("g", {}, stage);
+        svg("rect", { class: "head-band", x: props.x, y: props.y, width, height: HEAD }, stage);
+        const headLabels = props.columns.map((col, j) => {
+          const right = col.align === "end";
+          return text(stage, col.label, {
+            class: "head-label",
+            x: right ? colX(j) + col.width - PAD : colX(j) + PAD,
+            y: props.y + HEAD / 2,
+            "text-anchor": right ? "end" : "start",
+            "dominant-baseline": "central",
+          });
+        });
+        // Column rules go above the rows, so they stay visible over the cells.
+        const boundaries = [gutter ? colX(0) : null, ...props.columns.slice(1).map((_, k) => colX(k + 1))].filter((x) => x !== null);
+        const ruleLayer = svg("g", {}, stage);
+        boundaries.forEach((x) => svg("line", { class: "col-rule", x1: x, x2: x, y1: props.y, y2: bottom }, ruleLayer));
+
+        tl.from(frame, { opacity: 0, duration: 0.4, ease: "power2.out" }, 0.2);
+        headLabels.forEach((label, i) => writeIn(tl, label, 0.4 + i * 0.08, 0.4));
+
+        // Each row is built when its step needs it; its from-tweens keep it hidden before that.
+        const rowAt = (id) => {
+          const i = props.rows.findIndex((row) => row.id === id);
+          const row = props.rows[i];
+          const y0 = props.y + HEAD + i * ROW;
+          const g = svg("g", { class: `row${row.tone ? ` row--${row.tone}` : ""}` }, rows);
+          const band = svg("rect", { class: "row-band", x: props.x, y: y0, width, height: ROW }, g);
+          const bar = row.tone ? svg("rect", { class: "row-bar", x: props.x, y: y0, width: 12, height: ROW }, g) : null;
+          const rule = svg("line", { class: "rule", x1: props.x, x2: props.x + width, y1: y0 + ROW, y2: y0 + ROW }, g);
+          const cells = row.cells.map((value, j) => {
+            const col = props.columns[j];
+            const right = col.align === "end";
+            return text(g, value, {
+              class: "cell",
+              x: right ? colX(j) + col.width - PAD : colX(j) + PAD,
+              y: y0 + ROW / 2,
+              "text-anchor": right ? "end" : "start",
+              "dominant-baseline": "central",
+            });
+          });
+          let mark = null;
+          if (row.mark) {
+            const bx = props.x + 18;
+            const by = y0 + (ROW - BOX) / 2;
+            const boxEl = svg("rect", { class: "mark-box", x: bx, y: by, width: BOX, height: BOX, rx: 8 }, g);
+            const shapes = row.mark === "ok"
+              ? [svg("path", { class: "mark-ok", d: `M${bx + 10},${by + 28} l12,12 l22,-26` }, g)]
+              : [
+                svg("path", { class: "mark-block", d: `M${bx + 12},${by + 12} L${bx + 40},${by + 40}` }, g),
+                svg("path", { class: "mark-block", d: `M${bx + 40},${by + 12} L${bx + 12},${by + 40}` }, g),
+              ];
+            mark = { boxEl, shapes };
+          }
+          return { band, bar, rule, cells, mark };
+        };
+
+        const enter = (item, at) => {
+          tl.from(item.band, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.4, ease: "expo.out" }, at);
+          if (item.bar) tl.from(item.bar, { scaleY: 0, transformOrigin: "50% 0%", duration: 0.35, ease: "expo.out" }, at + 0.05);
+          tl.from(item.rule, { scaleX: 0, transformOrigin: "0% 50%", duration: 0.4, ease: "power2.out" }, at);
+          item.cells.forEach((cell, j) => writeIn(tl, cell, at + 0.15 + j * 0.08, 0.45));
+          if (item.mark) {
+            tl.from(item.mark.boxEl, { opacity: 0, duration: 0.3, ease: "power2.out" }, at + 0.1);
+            item.mark.shapes.forEach((shape, k) => tl.from(shape, { drawSVG: 0, duration: 0.35, ease: "power2.inOut" }, at + 0.35 + k * 0.1));
+          }
+          return 0.8 + item.cells.length * 0.08;
+        };
+
+        let sentence = null;
+        props.steps.forEach((step) => {
+          const start = tl.duration();
+          if (sentence) tl.to(sentence, { opacity: 0, duration: 0.25, ease: "power3.in" }, start);
+          (step.show ?? []).forEach((id, k) => enter(rowAt(id), start + 0.1 + k * 0.45));
+          if (step.text) {
+            sentence = block(root, step.text, { x: props.x, y: props.textY, className: "t56", width: 1600 });
+            writeIn(tl, sentence, start + 0.25, 0.5);
+          }
+          // The hold is the end of this step's tweens, so the next step never starts before it.
+          tl.addLabel(step.name);
+        });
+        return tl;
+      },
+    });
+  })();
+</script>

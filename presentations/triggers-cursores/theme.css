@@ -1,0 +1,51 @@
+/* «Hoja de resultados»: light grey paper with cell lines, like the results grid of SSMS.
+   Blue marks what is in focus now, orange the trigger and what it fires, green the right path and
+   inserted rows, red deleted rows, the cursor path and wrong results. Violet is for SQL keywords. */
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("../../player/vendor/fonts/bricolage-grotesque-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-display: block;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("../../player/vendor/fonts/bricolage-grotesque-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../player/vendor/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../player/vendor/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
+}
+
+:root {
+  --paper: #f3f4f6;
+  --grid: #d5d9df; /* cell lines */
+  --header: #e4e7ec; /* result grid header band */
+  --ink: #16191f;
+  --muted: #8b93a0; /* rows and lines not in focus */
+  --accent: #1f5fd1; /* blue: the row or statement in focus now */
+  --accent-2: #c2570c; /* orange: the trigger and what it fires */
+  --accent-3: #6b3fa0; /* violet: SQL keywords */
+  --ok: #1e7a46; /* green: inserted rows, the right path */
+  --block: #b3261e; /* red: deleted rows, the cursor path, wrong results */
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, monospace;
+  --wipe: var(--ink);
+}
+
+/* Horizontal cell lines on every scene host, so they travel with push and zoom. */
+.scene-host {
+  background-image: linear-gradient(var(--grid) 2px, transparent 2px);
+  background-size: 56px 56px;
+}

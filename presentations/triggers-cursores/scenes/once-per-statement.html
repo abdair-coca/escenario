@@ -1,0 +1,119 @@
+<!--
+  once-per-statement — one INSERT with three rows runs the trigger once, not three times. The rows reach the
+  trigger together, as the `inserted` table. The fan of three runs is drawn only to be crossed out.
+-->
+<template>
+  <style>
+    .panel { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+    .panel-head { fill: var(--header); }
+    .trigger-box { stroke: var(--accent-2); stroke-width: 6; }
+    .trigger-title { font-size: 56px; font-weight: 700; fill: var(--accent-2); }
+    .tree { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .bold { font-weight: 700; }
+    .muted { fill: var(--muted); }
+    .code { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .cell-ok { font-family: var(--font-code); font-size: 40px; font-weight: 700; fill: var(--ok); }
+    .link { fill: none; stroke: var(--accent-2); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+    .link-head { fill: var(--accent-2); }
+    .fan { fill: none; stroke: var(--block); stroke-width: 5; stroke-dasharray: 18 12; }
+    .fan-head { fill: var(--block); }
+    .cross { fill: none; stroke: var(--block); stroke-width: 9; stroke-linecap: round; }
+    .fan-label { font-size: 40px; font-weight: 700; fill: var(--block); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const CENTER = { "dominant-baseline": "central" };
+
+    registerScene({
+      id: "once-per-statement",
+      props: {},
+      steps: ["statement", "fan", "once", "inserted"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Una vez por sentencia", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // The statement: one INSERT, three rows
+        const sheet = svg("rect", { class: "panel", x: 160, y: 280, width: 660, height: 340, rx: 14 }, stage);
+        const sheetLabel = text(stage, "una sentencia", { class: "tree muted", x: 200, y: 320, ...CENTER });
+        const sheetLines = [
+          text(stage, "INSERT dbo.OrderLines", { class: "code", x: 200, y: 400, ...CENTER }),
+          text(stage, "(1042, 'Croissant', 2, 3),", { class: "code", x: 200, y: 455, ...CENTER }),
+          text(stage, "(1042, 'Te', 1, 4),", { class: "code", x: 200, y: 510, ...CENTER }),
+          text(stage, "(1042, 'Pan', 3, 2);", { class: "code", x: 200, y: 565, ...CENTER }),
+        ];
+
+        // The trigger: one box, one run
+        const trigger = svg("rect", { class: "panel trigger-box", x: 1040, y: 280, width: 720, height: 340, rx: 14 }, stage);
+        const triggerTitle = text(stage, "AFTER INSERT", { class: "trigger-title", x: 1080, y: 360, ...CENTER });
+        const triggerSub = text(stage, "trigger: una ejecución", { class: "tree muted", x: 1080, y: 430, ...CENTER });
+        const triggerNote = text(stage, "por sentencia, no por fila", { class: "tree", x: 1080, y: 500, ...CENTER });
+
+        // One arrow from the statement to the trigger
+        const link = svg("path", { class: "link", d: "M826,450 H1000" }, stage);
+        const linkHead = svg("path", { class: "link-head", d: "M1040,450 L1008,430 L1008,470 Z" }, stage);
+
+        // fan: three runs, crossed out
+        const fanY = [380, 450, 520];
+        const fanLines = fanY.map((y) => svg("path", { class: "fan", d: `M826,${y} H1000` }, stage));
+        const fanHeads = fanY.map((y) => svg("path", { class: "fan-head", d: `M1040,${y} L1008,${y - 20} L1008,${y + 20} Z` }, stage));
+        const cross = [
+          svg("path", { class: "cross", d: "M905,425 L955,475" }, stage),
+          svg("path", { class: "cross", d: "M955,425 L905,475" }, stage),
+        ];
+        const fanLabel = text(stage, "no por fila", { class: "fan-label", x: 930, y: 660, "text-anchor": "middle", ...CENTER });
+
+        // once: one run, three rows together
+        const onceLabel = text(stage, "3 filas", { class: "tree", x: 930, y: 400, "text-anchor": "middle", ...CENTER });
+
+        // inserted: the rows as the `inserted` table
+        const grid = svg("g", { class: "grid-inserted" }, stage);
+        svg("rect", { class: "panel", x: 160, y: 700, width: 1600, height: 300, rx: 10 }, grid);
+        svg("rect", { class: "panel-head", x: 160, y: 700, width: 1600, height: 64 }, grid);
+        text(grid, "inserted · las tres filas de la sentencia", { class: "tree muted", x: 200, y: 732, ...CENTER });
+        [["LineId", 200], ["Product", 480], ["Qty", 900], ["UnitPrice", 1080]].forEach(([label, x]) => {
+          text(grid, label, { class: "tree bold", x, y: 800, ...CENTER });
+        });
+        const rowsData = [["4", "Croissant", "2", "3"], ["5", "Te", "1", "4"], ["6", "Pan", "3", "2"]];
+        const columnX = [200, 480, 900, 1080];
+        const gridCells = rowsData.map((cells, r) => cells.map((value, c) => text(grid, value, { class: "cell-ok", x: columnX[c], y: 850 + r * 55, ...CENTER })));
+
+        // statement: the first step is the starting picture
+        tl.from([sheet, sheetLabel], { opacity: 0, duration: 0.4, ease: "power2.out" }, 0.2);
+        sheetLines.forEach((line, i) => writeIn(tl, line, 0.5 + i * 0.2, 0.45));
+        tl.from([trigger, triggerTitle, triggerSub, triggerNote], { opacity: 0, duration: 0.4, ease: "power2.out" }, 0.9);
+        tl.from(link, { drawSVG: 0, duration: 0.5, ease: "power2.inOut" }, 1.2);
+        tl.from(linkHead, { opacity: 0, duration: 0.3, ease: "power2.out" }, 1.6);
+        tl.addLabel("statement");
+
+        // fan: the three runs that people expect, crossed out
+        let at = tl.duration();
+        tl.to([link, linkHead], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        tl.from(fanLines, { opacity: 0, duration: 0.4, ease: "power2.out", stagger: 0.08 }, at + 0.1);
+        tl.from(fanHeads, { opacity: 0, duration: 0.3, ease: "power2.out" }, at + 0.3);
+        tl.from(cross, { drawSVG: 0, duration: 0.35, ease: "power2.inOut", stagger: 0.1 }, at + 0.4);
+        writeIn(tl, fanLabel, at + 0.6, 0.45);
+        tl.addLabel("fan");
+
+        // once: one run, with the three rows
+        at = tl.duration();
+        tl.to([...fanLines, ...fanHeads, ...cross, fanLabel], { opacity: 0, duration: 0.3, ease: "power3.in" }, at);
+        tl.to([link, linkHead], { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.2);
+        writeIn(tl, onceLabel, at + 0.4, 0.45);
+        tl.addLabel("once");
+
+        // inserted: the grid of the three rows
+        at = tl.duration();
+        tl.from(grid, { opacity: 0, duration: 0.4, ease: "power2.out" }, at);
+        gridCells.forEach((row, r) => row.forEach((cell) => writeIn(tl, cell, at + 0.3 + r * 0.25, 0.4)));
+        tl.addLabel("inserted");
+        return tl;
+      },
+    });
+  })();
+</script>

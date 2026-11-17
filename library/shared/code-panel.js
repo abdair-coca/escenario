@@ -1,5 +1,6 @@
 // Code printed on the paper: a tiny highlighter, typing-in and a highlighter-pen bar behind the
-// active lines. Languages: "python" (default), "js" (JavaScript/TypeScript) and "xml" (EXL, HTML).
+// active lines. Languages: "python" (default), "js" (JavaScript/TypeScript), "xml" (EXL, HTML) and
+// "sql" (T-SQL: keywords in UPPERCASE, `--` comments).
 // Load with <script src="/library/shared/code-panel.js"></script>; exposes window.codePanel.
 (function () {
   const WORDS = {
@@ -12,8 +13,17 @@
         "type", "interface", "new", "of", "for"],
       const: ["true", "false", "null", "undefined"],
     },
+    sql: {
+      kw: ["SELECT", "FROM", "WHERE", "JOIN", "LEFT", "CROSS", "APPLY", "ON", "AS", "WITH", "UNION", "GROUP", "BY",
+        "IN", "AND", "NOT", "INSERT", "UPDATE", "DELETE", "SET", "INTO", "VALUES", "CREATE", "OR", "ALTER", "TRIGGER",
+        "AFTER", "INSTEAD", "OF", "BEGIN", "END", "IF", "BREAK", "WHILE", "RETURN", "DECLARE", "CURSOR", "LOCAL",
+        "FAST_FORWARD", "FOR", "OPEN", "FETCH", "NEXT", "CLOSE", "DEALLOCATE", "TOP", "UPDLOCK", "ROWLOCK"],
+      const: ["NULL"],
+    },
   };
   const WORD_TOKEN = /(\s+)|('[^']*'|"[^"]*"|`[^`]*`)|([A-Za-z_$][\w$]*)|(\d+)|(.)/g;
+  // SQL: same groups as WORD_TOKEN; group 2 also takes `--` line comments, and @variables are names.
+  const SQL_TOKEN = /(\s+)|('[^']*'|--[^\n]*)|(@{0,2}[A-Za-z_]\w*)|(\d+)|(.)/g;
   // EXL/HTML: tag names, attribute names, quoted values, plain text.
   const XML_TOKEN = /(\s+)|(<\/?[\w-]+|\/?>)|([\w-]+)(?==)|("[^"]*")|([^<>"\s=]+|=)/g;
 
@@ -30,9 +40,10 @@
       return tokens;
     }
     const words = WORDS[lang];
-    for (const [, space, string, word, number, other] of line.matchAll(WORD_TOKEN)) {
+    const pattern = lang === "sql" ? SQL_TOKEN : WORD_TOKEN;
+    for (const [, space, string, word, number, other] of line.matchAll(pattern)) {
       if (space) tokens.push({ text: space, kind: "space" });
-      else if (string) tokens.push({ text: string, kind: "str" });
+      else if (string) tokens.push({ text: string, kind: string.startsWith("--") ? "comment" : "str" });
       else if (word) tokens.push({ text: word, kind: words.kw.includes(word) ? "kw" : words.const.includes(word) ? "const" : "name" });
       else if (number) tokens.push({ text: number, kind: "num" });
       else tokens.push({ text: other, kind: "punct" });
@@ -137,6 +148,7 @@
     .code__num { color: var(--accent); font-weight: 700; }
     .code__attr { color: var(--accent); }
     .code__str { color: var(--accent); }
+    .code__comment { color: var(--muted); font-style: italic; }
   `;
 
   window.codePanel = { tokenize, render, typeIn, swipeIn, swipeOut, CSS };

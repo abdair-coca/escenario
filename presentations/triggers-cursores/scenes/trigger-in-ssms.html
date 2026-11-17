@@ -1,0 +1,109 @@
+<!--
+  trigger-in-ssms — where a trigger lives in SSMS (Object Explorer, under its table), and what happens when an
+  INSERT lands on that table: the trigger fires, and it runs in the same transaction as the INSERT.
+-->
+<template>
+  <style>
+    .panel { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+    .panel-head { fill: var(--header); }
+    .tree { font-size: 40px; font-weight: 500; fill: var(--ink); }
+    .muted { fill: var(--muted); }
+    .trigger-name { font-family: var(--font-code); font-size: 40px; font-weight: 700; fill: var(--accent-2); letter-spacing: -0.03em; }
+    .code { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .hot { fill: none; stroke: var(--accent-2); stroke-width: 6; }
+    .link { fill: none; stroke: var(--accent-2); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+    .link-head { fill: var(--accent-2); }
+    .frame-line { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+    .tx-text { font-size: 40px; font-weight: 700; fill: var(--ink); }
+    .kind-on { fill: var(--accent-2); }
+    .kind-off { fill: var(--muted); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+    const CENTER = { "dominant-baseline": "central" };
+
+    registerScene({
+      id: "trigger-in-ssms",
+      props: {},
+      steps: ["tree", "insert", "fires", "tx", "kinds"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        writeIn(tl, block(root, "Un trigger en SSMS", { x: 160, y: 96, className: "t96" }), 0, 0.6);
+
+        // Object Explorer: the table, and under it the trigger
+        const explorer = [
+          svg("rect", { class: "panel", x: 160, y: 280, width: 800, height: 420, rx: 14 }, stage),
+          svg("rect", { class: "panel-head", x: 160, y: 280, width: 800, height: 70, rx: 14 }, stage),
+        ];
+        const explorerLabel = text(stage, "Object Explorer", { class: "tree muted", x: 200, y: 315, ...CENTER });
+        const tree = [
+          text(stage, "Tables", { class: "tree", x: 200, y: 410, ...CENTER }),
+          text(stage, "dbo.OrderLines", { class: "tree", x: 240, y: 470, ...CENTER }),
+          text(stage, "Triggers", { class: "tree", x: 280, y: 530, ...CENTER }),
+        ];
+        const trigger = text(stage, "trg_OrderLines_RecalcTotal", { class: "trigger-name", x: 320, y: 590, ...CENTER });
+
+        // Query window: an INSERT into the table
+        const editor = [
+          svg("rect", { class: "panel", x: 1020, y: 280, width: 740, height: 420, rx: 14 }, stage),
+          svg("rect", { class: "panel-head", x: 1020, y: 280, width: 740, height: 70, rx: 14 }, stage),
+        ];
+        const tab = text(stage, "Consulta.sql", { class: "tree muted", x: 1060, y: 315, ...CENTER });
+        const statement = [
+          text(stage, "INSERT dbo.OrderLines", { class: "code", x: 1060, y: 420, ...CENTER }),
+          text(stage, "VALUES (1042, 'Croissant',", { class: "code", x: 1060, y: 475, ...CENTER }),
+          text(stage, "2, 3);", { class: "code", x: 1242, y: 530, ...CENTER }),
+        ];
+
+        // The link from the statement to the trigger, and the outline around the trigger's name
+        const hot = svg("rect", { class: "hot", x: 304, y: 558, width: 620, height: 64, rx: 8 }, stage);
+        const link = svg("path", { class: "link", d: "M1010,590 H966" }, stage);
+        const linkHead = svg("path", { class: "link-head", d: "M936,590 L966,572 L966,608 Z" }, stage);
+
+        // The transaction box, then the two options for the trigger type
+        const tx = svg("rect", { class: "frame-line", x: 160, y: 760, width: 1600, height: 130, rx: 14 }, stage);
+        const txText = text(stage, "misma transacción: si el trigger falla, el INSERT se deshace", { class: "tx-text", x: 200, y: 825, ...CENTER });
+        const kindOn = text(stage, "AFTER · después del cambio · la que usamos", { class: "tx-text kind-on", x: 200, y: 808, ...CENTER });
+        const kindOff = text(stage, "INSTEAD OF · en lugar del cambio", { class: "tx-text kind-off", x: 200, y: 862, ...CENTER });
+
+        // tree: the first step is the starting picture
+        tl.from([...explorer, explorerLabel, ...tree], { opacity: 0, duration: 0.4, ease: "power2.out" }, 0.2);
+        writeIn(tl, trigger, 0.9, 0.6);
+        tl.addLabel("tree");
+
+        // insert: the INSERT is written into the query window
+        let at = tl.duration();
+        tl.from([...editor, tab], { opacity: 0, duration: 0.4, ease: "power2.out" }, at);
+        statement.forEach((line, i) => writeIn(tl, line, at + 0.3 + i * 0.25, 0.45));
+        tl.addLabel("insert");
+
+        // fires: the trigger is linked to the statement
+        at = tl.duration();
+        tl.from(link, { drawSVG: 0, duration: 0.45, ease: "power2.inOut" }, at);
+        tl.from(linkHead, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, at + 0.4);
+        tl.from(hot, { opacity: 0, duration: 0.4, ease: "power2.out" }, at);
+        tl.addLabel("fires");
+
+        // tx: one transaction
+        at = tl.duration();
+        tl.from(tx, { opacity: 0, duration: 0.4, ease: "power2.out" }, at);
+        writeIn(tl, txText, at + 0.2, 0.6);
+        tl.addLabel("tx");
+
+        // kinds: AFTER or INSTEAD OF
+        at = tl.duration();
+        tl.to(txText, { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        writeIn(tl, kindOn, at + 0.2, 0.5);
+        writeIn(tl, kindOff, at + 0.5, 0.5);
+        tl.addLabel("kinds");
+        return tl;
+      },
+    });
+  })();
+</script>
