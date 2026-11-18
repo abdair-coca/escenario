@@ -1,0 +1,108 @@
+<!--
+  nobody-watching: the mascot stands in a park holding its phone. Three satellites appear high above and send
+  dotted signals down to the phone; an arrow from the phone back up is crossed out: the phone only listens.
+  The mascot has its corner at the bottom right; the phone it holds is where every signal ends.
+-->
+<template>
+  <style>
+    .cross { fill: none; stroke: var(--block); stroke-width: 14; stroke-linecap: round; }
+    .cross-ink { fill: none; stroke: var(--ink); stroke-width: 26; stroke-linecap: round; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas, writeIn, block } = window.sceneKit;
+    const sk = window.stickerKit;
+    const gps = window.gps;
+
+    registerScene({
+      id: "nobody-watching",
+      props: {
+        headline: "¿Cómo sabe el GPS dónde estás?", // headline, top left
+        idea: "Solo escucha", // pill next to the phone
+      },
+      steps: ["pregunta", "satelites", "senal", "idea"],
+      build(root, props, gsap) {
+        gps.setup(root);
+        const stage = canvas(root);
+        const backLayer = svg("g", {}, stage);
+        const signalLayer = svg("g", {}, stage);
+        const satLayer = svg("g", {}, stage);
+        const mascotLayer = svg("g", {}, stage);
+        const frontLayer = svg("g", {}, stage);
+        const tl = gsap.timeline();
+        const GROUND = 972;
+        const MASCOT = { x: 1690, y: GROUND - 92, r: 90 };
+        const PHONE = { x: 1572, y: 850, w: 74, h: 124 };
+        const phoneTop = { x: PHONE.x, y: PHONE.y - PHONE.h / 2 - 8 };
+
+        // Entrance: ground strip, cloud, two park trees, the mascot holding its phone and looking up.
+        const ground = [
+          svg("rect", { x: 0, y: GROUND, width: 1920, height: 54, class: "ground", "data-decor": "", "data-bleed": "" }, backLayer),
+          svg("line", { x1: 0, y1: GROUND, x2: 1920, y2: GROUND, class: "edge", "data-decor": "", "data-bleed": "" }, backLayer),
+        ];
+        tl.from(ground, { opacity: 0, duration: 0.5 }, 0);
+        const cloud = sk.cloud(backLayer, 250, 610, 0.75);
+        tl.from(cloud, { scale: 0.7, opacity: 0, svgOrigin: "250 610", duration: 0.6, ease: "back.out(1.6)" }, 0.1);
+        [[300, 1.1], [520, 0.9]].forEach(([x, s], i) => {
+          const tree = svg("g", { "data-decor": "" }, backLayer);
+          sk.sticker(tree, "rect", { x: x - 14 * s, y: GROUND - 90 * s, width: 28 * s, height: 90 * s, rx: 8 }, "face-navy", 6);
+          sk.sticker(tree, "circle", { cx: x, cy: GROUND - 140 * s, r: 66 * s }, "face-soft", 8);
+          tl.from(tree, { scaleY: 0.4, opacity: 0, svgOrigin: `${x} ${GROUND}`, duration: 0.5, ease: "back.out(1.6)" }, 0.15 + i * 0.1);
+        });
+        const mascot = sk.mascot(mascotLayer, MASCOT.x, MASCOT.y, MASCOT.r, [-0.4, -0.95]);
+        const phone = gps.phone(mascotLayer, PHONE.x, PHONE.y, PHONE.w, PHONE.h);
+        gps.blueDot(phone.g, PHONE.x, PHONE.y, 9);
+        tl.from([mascot.g, phone.g], { scale: 0.6, opacity: 0, svgOrigin: `${MASCOT.x} ${GROUND}`, duration: 0.6, ease: "back.out(1.6)" }, 0.25);
+
+        // pregunta: the headline writes in
+        let at = tl.duration();
+        writeIn(tl, block(root, props.headline, { x: 160, y: 96, className: "t96" }), at, 0.8);
+        tl.addLabel("pregunta");
+
+        // satelites: three satellites pop in high above, one after another
+        at = tl.duration();
+        const sats = [{ x: 400, y: 400 }, { x: 960, y: 350 }, { x: 1400, y: 410 }];
+        sats.forEach((p, i) => {
+          const sat = gps.satellite(satLayer, p.x, p.y, 0.8);
+          tl.from(sat.g, { scale: 0.6, opacity: 0, svgOrigin: `${p.x} ${p.y}`, duration: 0.55, ease: "back.out(1.6)" }, at + i * 0.2);
+        });
+        tl.addLabel("satelites");
+
+        // senal: dotted signals come down from each satellite to the phone, then a reply arrow is crossed out
+        at = tl.duration();
+        sats.forEach((p, i) => {
+          const from = { x: p.x, y: p.y + 48 };
+          const s = gps.signal(signalLayer, from, phoneTop);
+          tl.from(s.line, { opacity: 0, duration: 0.3, ease: "power2.out" }, at + i * 0.15);
+          gps.travel(tl, s.dot, from, phoneTop, at + i * 0.15 + 0.1, 0.9, "power2.in");
+        });
+        at = tl.duration() + 0.1;
+        const reply = sk.arrow(frontLayer, { x: 1620, y: 772 }, { x: 1740, y: 580 }, { tone: "ink", w: 12 });
+        tl.from(reply, { scale: 0.1, opacity: 0, svgOrigin: "1620 772", duration: 0.5, ease: "expo.out" }, at);
+        const cross = svg("g", {}, frontLayer);
+        const c = { x: 1676, y: 680, r: 50 };
+        const strokes = [[-1, -1, 1, 1], [-1, 1, 1, -1]];
+        for (const cls of ["cross-ink", "cross"]) {
+          for (const [x1, y1, x2, y2] of strokes) {
+            svg("line", { x1: c.x + x1 * c.r, y1: c.y + y1 * c.r, x2: c.x + x2 * c.r, y2: c.y + y2 * c.r, class: cls }, cross);
+          }
+        }
+        tl.from(cross, { scale: 0.4, opacity: 0, svgOrigin: `${c.x} ${c.y}`, duration: 0.4, ease: "back.out(2)" }, at + 0.45);
+        tl.addLabel("senal");
+
+        // idea: a pill sticker next to the phone
+        at = tl.duration();
+        const idea = sk.pill(frontLayer, props.idea, 1230, 880, 440, 100, { rot: -4, tone: "blue", size: 56 });
+        tl.from(idea.g, { scale: 0.6, opacity: 0, svgOrigin: "1230 880", duration: 0.5, ease: "back.out(1.6)" }, at);
+        tl.addLabel("idea");
+
+        return tl;
+      },
+    });
+  })();
+</script>

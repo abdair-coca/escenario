@@ -1,0 +1,83 @@
+<!--
+  one-circle: the city seen from above, with satellite #1 over it. Its distance becomes a ring: the phone is
+  somewhere on that ring. Question-mark pins pop on four points of it (one in the park) and shake: one
+  distance is not enough. The next scene (three-circles) starts from this scene's last step.
+-->
+<template>
+  <style></style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas, writeIn, block } = window.sceneKit;
+    const sk = window.stickerKit;
+    const gps = window.gps;
+
+    // Angles (degrees, screen coordinates) of the pins on ring #1; the first one is the park.
+    const PIN_ANGLES = [null, 95, 180, 300];
+    const TAG_ANGLE = 240;
+
+    registerScene({
+      id: "one-circle",
+      props: {
+        headline: "Una distancia no basta", // headline, top left
+        distance: "21 000 km", // tag on the ring
+        which: "¿cuál?", // pill after the pins shake
+      },
+      steps: ["circulo", "dudas", "falta"],
+      build(root, props, gsap) {
+        gps.setup(root);
+        const stage = canvas(root);
+        const mapLayer = svg("g", {}, stage);
+        const ringLayer = svg("g", {}, stage);
+        const satLayer = svg("g", {}, stage);
+        const pinLayer = svg("g", {}, stage);
+        const tagLayer = svg("g", {}, stage);
+        const tl = gsap.timeline();
+        const S1 = gps.SATS[1];
+        const r1 = gps.radius(1);
+        const onRing = (deg) => ({ x: S1.x + r1 * Math.cos((deg * Math.PI) / 180), y: S1.y + r1 * Math.sin((deg * Math.PI) / 180) });
+
+        // Entrance: the map and satellite #1, then the headline.
+        const map = gps.cityMap(mapLayer);
+        tl.from(map, { opacity: 0, scale: 0.96, svgOrigin: "960 640", duration: 0.6, ease: "expo.out" }, 0);
+        const sat = gps.satellite(satLayer, S1.x, S1.y, 0.6, 1);
+        tl.from(sat.g, { scale: 0.6, opacity: 0, svgOrigin: `${S1.x} ${S1.y}`, duration: 0.5, ease: "back.out(1.6)" }, 0.3);
+        writeIn(tl, block(root, props.headline, { x: 160, y: 96, className: "t96" }), 0.4, 0.7);
+
+        // circulo: the ring around satellite #1 draws itself, with its distance on the edge
+        let at = tl.duration();
+        const ring = gps.ring(ringLayer, S1, r1, true);
+        tl.from(ring, { drawSVG: "0%", duration: 1.1, ease: "power2.inOut" }, at);
+        const tp = onRing(TAG_ANGLE);
+        const tag = gps.tag(tagLayer, props.distance, tp.x, tp.y, { size: 40, rot: -4 });
+        tl.from(tag, { scale: 0.6, opacity: 0, svgOrigin: `${tp.x} ${tp.y}`, duration: 0.45, ease: "back.out(1.6)" }, at + 0.8);
+        tl.addLabel("circulo");
+
+        // dudas: four question-mark pins on the ring, one of them in the park
+        at = tl.duration();
+        const pins = PIN_ANGLES.map((deg, i) => {
+          const p = deg === null ? gps.P : onRing(deg);
+          const pin = gps.pin(pinLayer, p.x, p.y, "?");
+          tl.from(pin.g, { y: -70, opacity: 0, duration: 0.45, ease: "back.out(1.6)" }, at + i * 0.12);
+          return { pin, p };
+        });
+        tl.addLabel("dudas");
+
+        // falta: the pins shake once and a pill asks which one
+        at = tl.duration();
+        pins.forEach(({ pin, p }, i) => {
+          tl.to(pin.g, { keyframes: { rotation: [0, -10, 9, -5, 0] }, svgOrigin: `${p.x} ${p.y}`, duration: 0.5, ease: "power1.inOut" }, at + i * 0.06);
+        });
+        const which = sk.pill(tagLayer, props.which, 1320, 400, 300, 100, { rot: 5, tone: "blue", size: 56 });
+        tl.from(which.g, { scale: 0.6, opacity: 0, svgOrigin: "1320 400", duration: 0.45, ease: "back.out(1.6)" }, at + 0.5);
+        tl.addLabel("falta");
+
+        return tl;
+      },
+    });
+  })();
+</script>

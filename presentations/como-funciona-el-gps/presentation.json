@@ -1,0 +1,68 @@
+{
+  "title": "Cómo sabe el GPS dónde estás",
+  "lang": "es",
+  "theme": "theme.css",
+  "scenes": [
+    {
+      "scene": "scenes/nobody-watching",
+      "title": "Nadie te está mirando",
+      "transition": { "type": "cut" },
+      "notes": {
+        "pregunta": "Abrimos el mapa y aparece el puntito azul. ¿Cómo lo sabe?",
+        "satelites": "Hay unos treinta satélites GPS dando vueltas a la Tierra, a unos 20 000 km de altura.",
+        "senal": "Ellos hablan y el teléfono escucha. El teléfono no les contesta nada.",
+        "idea": "Así que el satélite no te ve. Entonces, ¿qué está escuchando?"
+      }
+    },
+    {
+      "scene": "scenes/time-message",
+      "title": "Un mensaje con la hora",
+      "transition": { "type": "push", "direction": "down" },
+      "notes": {
+        "trueno": "¿Cuentan los segundos entre el rayo y el trueno? Tres segundos, un kilómetro. El tiempo de viaje da la distancia.",
+        "mensaje": "El satélite hace lo mismo: manda su nombre y la hora exacta, sin parar.",
+        "llega": "Llegó 7 centésimas tarde. La señal viaja a la velocidad de la luz, así que eso son unos 21 000 km."
+      }
+    },
+    {
+      "scene": "scenes/one-circle",
+      "title": "Una distancia no basta",
+      "transition": { "type": "reveal", "target": ".distance" },
+      "notes": {
+        "circulo": "Sé que estoy a 21 000 km del satélite 1. Pero eso es toda una circunferencia.",
+        "dudas": "Podría estar aquí, aquí, o aquí. Cualquier punto del borde cumple.",
+        "falta": "Con un solo satélite no alcanza. Necesito más."
+      }
+    },
+    {
+      "scene": "scenes/three-circles",
+      "title": "Tres círculos, un punto",
+      "transition": { "type": "cut" },
+      "notes": {
+        "dos": "Con un segundo satélite solo quedan dos puntos posibles.",
+        "tres": "El tercero decide: solo uno de los dos puntos está a la distancia correcta de los tres.",
+        "aqui": "Donde se cruzan las tres, ahí estás. A esto se le llama trilateración."
+      }
+    },
+    {
+      "scene": "scenes/clocks",
+      "title": "Relojes que no pueden fallar",
+      "transition": { "type": "wipe", "color": "var(--accent-3)" },
+      "notes": {
+        "error": "Si el reloj se equivoca una milésima de segundo, el error son 300 km. Y los círculos ya no coinciden.",
+        "atomico": "Por eso cada satélite lleva relojes atómicos, carísimos, que casi no se equivocan.",
+        "cuarto": "Tu teléfono no tiene uno. Por eso escucha a un cuarto satélite: con él corrige su propio reloj y los círculos vuelven a cruzarse."
+      }
+    },
+    {
+      "scene": "scenes/blue-dot",
+      "title": "Y aparece el puntito",
+      "transition": { "type": "zoom", "target": ".phone-screen" },
+      "notes": {
+        "receta": "Repasemos: escucha, mide el tiempo, lo convierte en distancia y cruza los círculos.",
+        "punto": "Y lo repite cada segundo. Por eso el puntito te sigue cuando caminas.",
+        "idea": "El GPS no te ve: tu teléfono escucha la hora y calcula dónde estás."
+      }
+    }
+  ]
+}

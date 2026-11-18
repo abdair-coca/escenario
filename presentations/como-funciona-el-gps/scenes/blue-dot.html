@@ -1,0 +1,90 @@
+<!--
+  blue-dot: inside the phone. Its screen shows the city map with the park; four numbered pills recap the recipe
+  (listen, time, distance, cross); the blue dot drops onto the park and the mascot smiles; the one idea is
+  written across the bottom, left of the mascot's corner.
+-->
+<template>
+  <style>
+    .screen-block { fill: var(--paper); stroke: var(--ink); stroke-width: 4; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas, writeIn, block } = window.sceneKit;
+    const sk = window.stickerKit;
+    const gps = window.gps;
+
+    registerScene({
+      id: "blue-dot",
+      props: {
+        headline: "Y aparece el puntito", // headline, top left
+        recipe: ["#1 escucha", "#2 mide el tiempo", "#3 calcula distancias", "#4 cruza círculos"], // pills, in order
+        idea: "El GPS no te ve: tu teléfono escucha la hora que mandan los satélites, la convierte en distancias y estás donde esas distancias se cruzan.", // closing line
+      },
+      steps: ["receta", "punto", "idea"],
+      build(root, props, gsap) {
+        gps.setup(root);
+        const stage = canvas(root);
+        const decorLayer = svg("g", {}, stage);
+        const phoneLayer = svg("g", {}, stage);
+        const pillLayer = svg("g", {}, stage);
+        const mascotLayer = svg("g", {}, stage);
+        const tl = gsap.timeline();
+        const MASCOT = { x: 1680, y: 900, r: 90 };
+
+        // Entrance: headline, the phone with the map on its screen, the cloud and the mascot.
+        writeIn(tl, block(root, props.headline, { x: 160, y: 96, className: "t96" }), 0, 0.7);
+        const phone = gps.phone(phoneLayer, 380, 510, 400, 560);
+        const { box } = phone;
+        const clip = svg("clipPath", { id: "screen-clip" }, svg("defs", {}, stage));
+        svg("rect", { x: box.x, y: box.y, width: box.w, height: box.h, rx: 24 }, clip);
+        const map = svg("g", { "clip-path": "url(#screen-clip)" }, phone.g);
+        const cols = [box.x + 18, box.x + 124, box.x + 230];
+        const rows = [box.y + 22, box.y + 136, box.y + 250, box.y + 364];
+        let parkCentre = null;
+        cols.forEach((x, i) => rows.forEach((y, j) => {
+          if (i === 1 && j === 2) {
+            gps.park(map, x, y, 84, 92);
+            parkCentre = { x: x + 42, y: y + 46 };
+          } else svg("rect", { x, y, width: 84, height: 92, rx: 12, class: "screen-block" }, map);
+        }));
+        tl.from(phone.g, { scale: 0.9, opacity: 0, svgOrigin: "380 790", duration: 0.6, ease: "back.out(1.4)" }, 0.1);
+        const cloud = sk.cloud(decorLayer, 1690, 160, 0.7);
+        tl.from(cloud, { scale: 0.7, opacity: 0, svgOrigin: "1690 160", duration: 0.5, ease: "back.out(1.6)" }, 0.3);
+        const mascot = sk.mascot(mascotLayer, MASCOT.x, MASCOT.y, MASCOT.r, [-0.95, -0.2]);
+        tl.from(mascot.g, { scale: 0.6, opacity: 0, svgOrigin: `${MASCOT.x} ${MASCOT.y + MASCOT.r}`, duration: 0.6, ease: "back.out(1.6)" }, 0.4);
+
+        // receta: four pills pop in one after another, each pressing as it lands
+        let at = tl.duration();
+        props.recipe.forEach((word, i) => {
+          const cy = 290 + i * 140;
+          const rot = [-1, 1, -1, 1][i % 4];
+          const pill = sk.pill(pillLayer, word, 1030, cy, 660, 86, { rot, tone: "blue", size: 48 });
+          tl.from(pill.g, { scale: 0.6, opacity: 0, svgOrigin: `1030 ${cy}`, duration: 0.45, ease: "back.out(1.6)" }, at + i * 0.5);
+          tl.to(pill.face, { x: 6, y: 6, duration: 0.15, ease: "power2.out", yoyo: true, repeat: 1 }, at + i * 0.5 + 0.35);
+        });
+        tl.addLabel("receta");
+
+        // punto: the blue dot drops onto the park with a squash, and the mascot smiles
+        at = tl.duration();
+        const dot = gps.blueDot(phoneLayer, parkCentre.x, parkCentre.y, 18);
+        tl.from(dot, { y: -160, opacity: 0, duration: 0.5, ease: "power3.in" }, at);
+        tl.to(dot, { keyframes: { scaleY: [1, 0.75, 1], scaleX: [1, 1.15, 1] }, svgOrigin: `${parkCentre.x} ${parkCentre.y + 28}`, duration: 0.35, ease: "power1.out" }, at + 0.5);
+        tl.to(mascot.smile, { opacity: 0, duration: 0.2 }, at + 0.6);
+        tl.to([mascot.bigSmile, ...mascot.cheeks], { opacity: 1, duration: 0.3, ease: "power2.out" }, at + 0.6);
+        tl.addLabel("punto");
+
+        // idea: the one idea writes in across the bottom, left of the mascot's corner
+        at = tl.duration();
+        writeIn(tl, block(root, props.idea, { x: 160, y: 836, className: "t56", width: 1300 }), at, 1.2);
+        tl.addLabel("idea");
+
+        return tl;
+      },
+    });
+  })();
+</script>
