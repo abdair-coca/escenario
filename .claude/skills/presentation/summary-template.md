@@ -14,14 +14,13 @@
 
 ## Look
 
+Brand look from `DESIGN.md` (`library/shared/brand.css`). List only what this topic adds:
+
 | Role | Hex | Used for |
 |---|---|---|
-| … | `#……` | … (4–6 colours) |
+| … | `#……` | … (0–2 extras; most topics need none) |
 
-- **Fonts:** <display>, <body>, <code>, with where each is used and where the files come from.
-- **Size scale (px on 1920×1080):** <e.g. 40 · 56 · 72 · 96 · 160>. 40 is the minimum for anything to be read.
-- **Avoids the default look:** say how this design avoids each banned look —
-  dark background with floating things · glows and particles · three cards in a row · everything entering with fade + slide up.
+- **Decoration and mascot:** <which decorations from DESIGN.md, whether the mascot appears and what it does>.
 
 ## Scenes
 

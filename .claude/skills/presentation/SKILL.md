@@ -12,6 +12,7 @@ Run the phases in order. Each one ends with a check; do not start the next phase
 Write `presentations/<slug>/summary.md` following [summary-template.md](summary-template.md).
 Ask (quiz with options) for anything the request leaves open: audience, duration, on-screen language, programming language of any code.
 Before planning new scenes, list `library/` and reuse what fits.
+The look is fixed by [DESIGN.md](../../../DESIGN.md): the summary's **Look** lists only topic extras.
 
 Done when the summary is written and you have **stopped**: tell the user it is ready and wait.
 Write scenes only after the user explicitly approves (for example "go on", "sigue", "aprobado").
@@ -20,7 +21,8 @@ If they ask for changes, edit the summary and wait again.
 ## 2. Scenes
 
 1. Follow [contract.md](contract.md) for scene files, `presentation.json` and `theme.css`.
-2. Follow [rules.md](rules.md) for clarity and motion.
+2. Follow [rules.md](rules.md) for clarity and motion, and [DESIGN.md](../../../DESIGN.md) for the look:
+   `theme.css` starts with `@import url("../../library/shared/brand.css");`.
 3. A scene that could serve another topic goes to `library/<id>.html` with its content in props.
    A scene tied to this topic goes to `presentations/<slug>/scenes/<id>.html`.
 4. A new browser library: `npm install` it, add its files to `scripts/vendor.mjs`, run `npm run vendor`,

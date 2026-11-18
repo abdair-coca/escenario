@@ -1,0 +1,66 @@
+/* Brand theme: the look of every presentation, taken from Abdair Coca's GitHub profile.
+   White paper with faint blue dots, thick ink outlines, hard offset shadows, round corners, Fredoka.
+   A presentation's theme.css imports this file first and adds only its own extras. See DESIGN.md. */
+
+@font-face {
+  font-family: "Fredoka";
+  src: url("../../player/vendor/fonts/fredoka-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-display: block;
+}
+@font-face {
+  font-family: "Fredoka";
+  src: url("../../player/vendor/fonts/fredoka-latin-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-display: block;
+}
+@font-face {
+  font-family: "Fredoka";
+  src: url("../../player/vendor/fonts/fredoka-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../player/vendor/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: block;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../../player/vendor/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: block;
+}
+
+:root {
+  /* Contract names read by library scenes. */
+  --paper: #ffffff;
+  --ink: #111318; /* text, every outline, every shadow */
+  --muted: #94a3b8; /* discarded, not in focus */
+  --accent: #2563eb; /* blue: the thing being talked about now */
+  --accent-2: #93c5fd; /* light blue: fills of secondary shapes, highlights */
+  --accent-3: #1e3a8a; /* navy: bands, ground, deep fills */
+  --ok: #16a34a; /* only for right / pass */
+  --block: #dc2626; /* only for wrong / fail */
+  --font-display: "Fredoka", "Comic Sans MS", system-ui, sans-serif;
+  --font-body: "Fredoka", system-ui, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, monospace;
+  --wipe: var(--accent);
+
+  /* Brand extras. */
+  --blue-mid: #3b82f6; /* small details: code-line bars, cheeks, dots */
+  --slate: #334155; /* secondary text that must still be read */
+  --dots: rgb(37 99 235 / 0.07); /* paper texture */
+  --dots-on-blue: rgb(255 255 255 / 0.16); /* texture on blue panels */
+  --outline: 6px; /* stroke of panels and big shapes; 4px on small ones */
+  --radius: 32px; /* panels; pills use height / 2 */
+  --shadow: 10px 10px 0 var(--ink); /* hard offset shadow, never blurred */
+}
+
+/* Faint blue dot grid on every scene host, so it travels with push and zoom. */
+.scene-host {
+  background-color: var(--paper);
+  background-image: radial-gradient(circle, var(--dots) 4px, transparent 4.5px);
+  background-size: 40px 40px;
+}

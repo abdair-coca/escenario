@@ -18,6 +18,7 @@ const GSAP_FILES = [
 
 const FONT_FILES = {
   "bricolage-grotesque": ["latin-500-normal.woff2", "latin-700-normal.woff2"],
+  fredoka: ["latin-500-normal.woff2", "latin-600-normal.woff2", "latin-700-normal.woff2"],
   "jetbrains-mono": ["latin-400-normal.woff2", "latin-700-normal.woff2"],
 };
 
