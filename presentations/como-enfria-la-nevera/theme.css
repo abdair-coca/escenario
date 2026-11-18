@@ -1,0 +1,5 @@
+@import url("../../library/shared/brand.css");
+
+:root {
+  --warm: #ea580c; /* heat: warm arrows, hot gas, the hot side of the loop */
+}

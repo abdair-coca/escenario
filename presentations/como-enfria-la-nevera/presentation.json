@@ -1,0 +1,70 @@
+{
+  "title": "Cómo enfría una nevera",
+  "lang": "es",
+  "theme": "theme.css",
+  "scenes": [
+    {
+      "scene": "scenes/heat-out",
+      "title": "Mover calor, no fabricar frío",
+      "transition": { "type": "cut" },
+      "notes": {
+        "pregunta": "Todos usamos la nevera, pero ¿cómo es que enfría?",
+        "nevera": "Metemos una leche recién comprada, tibia.",
+        "calor": "La nevera no inventa frío: saca el calor de la leche y lo tira a la cocina.",
+        "idea": "Su trabajo es mover calor de dentro hacia fuera. ¿Cómo lo hace? Con un tubo."
+      }
+    },
+    {
+      "scene": "scenes/closed-loop",
+      "title": "Un circuito cerrado",
+      "transition": { "type": "zoom", "target": ".fridge-back" },
+      "notes": {
+        "zonas": "Separamos lo de dentro de la nevera y la cocina.",
+        "tubo": "Un tubo cerrado, que va y viene entre los dos sitios.",
+        "liquido": "Por el tubo da vueltas un líquido especial, el refrigerante. Nunca sale: siempre es el mismo."
+      }
+    },
+    {
+      "scene": "scenes/inside-boil",
+      "title": "Dentro: el líquido hierve",
+      "transition": { "type": "reveal", "target": ".coil-in" },
+      "notes": {
+        "bobina": "En el interior, el tubo se enrolla en una bobina. El líquido llega muy frío, bajo cero.",
+        "calor": "La leche está más caliente que el líquido, así que su calor pasa hacia él.",
+        "hierve": "Con ese calor el líquido hierve y se convierte en gas. Hervir a esta temperatura es posible porque la presión es baja.",
+        "gas": "Ese gas se va con el calor dentro. Y la leche queda un poco más fría."
+      }
+    },
+    {
+      "scene": "scenes/pump-squeeze",
+      "title": "La bomba aprieta y calienta",
+      "transition": { "type": "push", "direction": "left" },
+      "notes": {
+        "gas": "El gas llega a la bomba, el compresor.",
+        "aprieta": "El compresor lo aprieta en un espacio mucho menor. Es como la bomba de una bici.",
+        "caliente": "Al apretar un gas, se calienta, como el tubo de la bomba de bici. Ahora está más caliente que la cocina."
+      }
+    },
+    {
+      "scene": "scenes/heat-leaves",
+      "title": "Detrás: sale el calor",
+      "transition": { "type": "wipe", "color": "var(--warm)", "direction": "right" },
+      "notes": {
+        "bobina": "El gas caliente pasa por otra bobina, esta vez fuera, detrás de la nevera.",
+        "calor": "Como está más caliente que la cocina, su calor sale al aire. Por eso la parte de atrás de una nevera está tibia.",
+        "liquido": "Al soltar el calor, el gas se vuelve líquido."
+      }
+    },
+    {
+      "scene": "scenes/loop-closes",
+      "title": "Un viaje sin fin",
+      "transition": { "type": "push", "direction": "up" },
+      "notes": {
+        "valvula": "Falta una pieza: una válvula estrecha por donde el líquido pasa con menos presión, y se enfría mucho.",
+        "giro": "Y vuelta a empezar: hierve dentro, se aprieta, suelta el calor fuera y se enfría en la válvula.",
+        "leche": "Cada vuelta saca un poco más de calor de la leche, hasta que queda fría.",
+        "idea": "Así que una nevera no fabrica frío: se lleva el calor."
+      }
+    }
+  ]
+}

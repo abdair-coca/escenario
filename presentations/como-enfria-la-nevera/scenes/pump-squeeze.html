@@ -1,0 +1,131 @@
+<!--
+  pump-squeeze: a big bike-pump barrel with eight gas bubbles in it. The plunger pushes in, the bubbles pack
+  into the small end and turn orange. Below, a temperature scale split at the kitchen's 22 °C: the marker
+  starts far below it (cold gas) and ends far above it (hot gas).
+-->
+<template>
+  <style></style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas, writeIn, block } = window.sceneKit;
+    const nv = window.nevera;
+    const BARREL = { x: 640, y: 410, w: 920, h: 310 };
+    const PUSH = 440; // how far the plunger travels
+    const R = 34; // bubble radius
+    // Eight bubbles: spread out along the barrel, then packed against the plunger.
+    const SPREAD = [[820, 500], [1050, 470], [1280, 520], [1460, 480], [870, 640], [1100, 660], [1320, 620], [1480, 650]];
+    const PACKED = [[1230, 485], [1306, 485], [1382, 485], [1268, 560], [1344, 560], [1420, 560], [1230, 635], [1306, 635]];
+    // Temperature scale: -30 to 70 °C over x 340..1600.
+    const SCALE = { x0: 340, x1: 1600, y: 860, h: 40, min: -30, max: 70 };
+    const xOf = (t) => SCALE.x0 + ((t - SCALE.min) / (SCALE.max - SCALE.min)) * (SCALE.x1 - SCALE.x0);
+
+    registerScene({
+      id: "pump-squeeze",
+      props: {
+        headline: "La bomba aprieta y calienta", // headline, top left
+        cold: "gas frío", // pill over the spread gas
+        squeezed: "apretado", // pill over the packed gas
+        hot: "gas caliente", // pill over the hot gas
+        coldTemp: "−20 °C", // marker before squeezing
+        hotTemp: "60 °C", // marker after squeezing
+        coldValue: -20, // the same, as a number, to place the marker
+        hotValue: 60, // the same, as a number
+        kitchen: "cocina · 22 °C", // tick label on the scale
+        kitchenValue: 22, // where the tick sits
+        warmer: "más caliente que la cocina", // label right of the tick, after squeezing
+      },
+      steps: ["gas", "aprieta", "caliente"],
+      build(root, props, gsap) {
+        nv.setup(root);
+        const stage = canvas(root);
+        const barrelLayer = svg("g", {}, stage);
+        const bubbleLayer = svg("g", {}, stage);
+        const plungerLayer = svg("g", {}, stage);
+        const scaleLayer = svg("g", {}, stage);
+        const markerLayer = svg("g", {}, stage);
+        const labelLayer = svg("g", {}, stage);
+        const tl = gsap.timeline();
+
+        // Entrance: the headline.
+        writeIn(tl, block(root, props.headline, { x: 160, y: 96, className: "t96" }), 0, 0.7);
+
+        // gas: the barrel, the plunger, eight cold bubbles, the label and the scale with the cold marker
+        let at = tl.duration();
+        const barrel = svg("g", {}, barrelLayer);
+        nv.sticker(barrel, "rect", { x: BARREL.x, y: BARREL.y, width: BARREL.w, height: BARREL.h, rx: 40 }, "panel");
+        tl.from(barrel, { scale: 0.92, opacity: 0, svgOrigin: "1100 565", duration: 0.6, ease: "back.out(1.4)" }, at);
+
+        const plunger = svg("g", {}, plungerLayer);
+        svg("rect", { x: 110, y: 485, width: 36, height: 160, rx: 18, class: "face-blue" }, plunger);
+        svg("rect", { x: 140, y: 553, width: 550, height: 24, rx: 12, class: "face-paper" }, plunger);
+        svg("rect", { x: 680, y: 428, width: 34, height: 274, rx: 12, class: "panel-navy", "stroke-width": 4 }, plunger);
+        tl.from(plunger, { x: -80, opacity: 0, duration: 0.6, ease: "expo.out" }, at + 0.3);
+
+        const bubbles = SPREAD.map(([x, y]) => {
+          const g = svg("g", {}, bubbleLayer);
+          svg("circle", { cx: x, cy: y, r: R, class: "face-soft" }, g);
+          const hot = svg("circle", { cx: x, cy: y, r: R, class: "face-warm", opacity: 0 }, g);
+          return { g, hot };
+        });
+        bubbles.forEach(({ g }, i) => tl.from(g, { y: -50, opacity: 0, duration: 0.5, ease: "back.out(1.6)" }, at + 0.6 + i * 0.07));
+        const coldPill = nv.pill(labelLayer, props.cold, 950, 330, 270, 76, { rot: -3, tone: "blue", size: 48 });
+        tl.from(coldPill.g, { scale: 0.6, opacity: 0, svgOrigin: "950 330", duration: 0.5, ease: "back.out(1.6)" }, at + 1.1);
+
+        // the scale: a cold part and a warm part, split at the kitchen's temperature
+        const xk = xOf(props.kitchenValue);
+        const leftD = `M${xk},${SCALE.y} H${SCALE.x0 + 20} A20,20 0 0 0 ${SCALE.x0 + 20},${SCALE.y + SCALE.h} H${xk} Z`;
+        const rightD = `M${xk},${SCALE.y} H${SCALE.x1 - 20} A20,20 0 0 1 ${SCALE.x1 - 20},${SCALE.y + SCALE.h} H${xk} Z`;
+        const track = svg("g", {}, scaleLayer);
+        svg("path", { d: leftD, class: "shade", transform: "translate(6 6)" }, track);
+        svg("path", { d: rightD, class: "shade", transform: "translate(6 6)" }, track);
+        svg("path", { d: leftD, class: "panel-blue" }, track);
+        svg("path", { d: rightD, class: "panel", style: "fill:var(--warm)" }, track);
+        svg("line", { x1: xk, y1: SCALE.y - 12, x2: xk, y2: SCALE.y + SCALE.h + 12, class: "ink-line", "stroke-width": 6 }, track);
+        const tick = nv.label(scaleLayer, props.kitchen, xk - 14, 965, "t40", "end");
+        tl.from(track, { opacity: 0, scaleX: 0.5, svgOrigin: `${(SCALE.x0 + SCALE.x1) / 2} 880`, duration: 0.6, ease: "expo.out" }, at + 0.9);
+        writeIn(tl, tick, at + 1.3, 0.5);
+
+        const x0 = xOf(props.coldValue);
+        const marker = svg("g", {}, markerLayer);
+        const my = SCALE.y + SCALE.h / 2;
+        svg("circle", { cx: x0 + 4, cy: my + 4, r: 34, class: "shade" }, marker);
+        svg("circle", { cx: x0, cy: my, r: 34, class: "face-blue", "stroke-width": 6 }, marker);
+        const markerHot = svg("circle", { cx: x0, cy: my, r: 34, class: "face-warm", "stroke-width": 6, opacity: 0 }, marker);
+        const coldTemp = nv.pill(marker, props.coldTemp, x0, 800, 190, 64, { tone: "blue", size: 40 });
+        const hotTemp = nv.pill(marker, props.hotTemp, x0, 800, 170, 64, { tone: "warm", size: 40 });
+        gsap.set(hotTemp.g, { opacity: 0 });
+        tl.from(marker, { scale: 0.5, opacity: 0, svgOrigin: `${x0} ${my}`, duration: 0.5, ease: "back.out(1.6)" }, at + 1.4);
+        tl.addLabel("gas");
+
+        // aprieta: the plunger pushes in and the bubbles pack against it
+        at = tl.duration();
+        tl.to(plunger, { x: PUSH, duration: 1.3, ease: "power2.inOut" }, at);
+        bubbles.forEach(({ g }, i) => {
+          tl.to(g, { x: PACKED[i][0] - SPREAD[i][0], y: PACKED[i][1] - SPREAD[i][1], duration: 1.3, ease: "power2.inOut" }, at);
+        });
+        const squeezed = nv.pill(labelLayer, props.squeezed, 1380, 330, 290, 76, { rot: 3, tone: "blue", size: 48 });
+        tl.from(squeezed.g, { scale: 0.6, opacity: 0, svgOrigin: "1380 330", duration: 0.5, ease: "back.out(1.6)" }, at + 1.0);
+        tl.addLabel("aprieta");
+
+        // caliente: the bubbles turn orange and the marker travels past the kitchen tick
+        at = tl.duration();
+        tl.to([coldPill.g, squeezed.g], { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        const hotPill = nv.pill(labelLayer, props.hot, 1260, 330, 400, 76, { rot: -3, tone: "warm", size: 48 });
+        tl.from(hotPill.g, { scale: 0.6, opacity: 0, svgOrigin: "1260 330", duration: 0.5, ease: "back.out(1.6)" }, at + 0.2);
+        bubbles.forEach(({ hot }, i) => tl.to(hot, { opacity: 1, duration: 0.4 }, at + 0.1 + i * 0.05));
+        tl.to(marker, { x: xOf(props.hotValue) - x0, duration: 1.5, ease: "power2.inOut" }, at + 0.3);
+        tl.to(markerHot, { opacity: 1, duration: 0.4 }, at + 1.1);
+        tl.to(coldTemp.g, { opacity: 0, duration: 0.3 }, at + 1.0);
+        tl.to(hotTemp.g, { opacity: 1, duration: 0.3 }, at + 1.2);
+        writeIn(tl, nv.label(scaleLayer, props.warmer, xk + 30, 965, "t40"), at + 1.6, 0.6);
+        tl.addLabel("caliente");
+
+        return tl;
+      },
+    });
+  })();
+</script>

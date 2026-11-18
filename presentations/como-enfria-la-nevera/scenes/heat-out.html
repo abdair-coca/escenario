@@ -1,0 +1,97 @@
+<!--
+  heat-out: a cutaway fridge with a warm carton of milk. Three orange arrows carry the carton's heat through
+  the wall into the kitchen: the fridge does not make cold, it moves heat. The mascot looks at the carton
+  from its own corner (bottom right) and nothing else enters that corner.
+-->
+<template>
+  <style></style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas, writeIn, block } = window.sceneKit;
+    const nv = window.nevera;
+
+    registerScene({
+      id: "heat-out",
+      props: {
+        headline: "¿Cómo enfría una nevera?", // headline, top left
+        warm: "25 °C", // temperature badge on the carton
+        word: "calor", // label of the heat arrows
+        idea: "Mueve calor", // pill in the kitchen
+      },
+      steps: ["pregunta", "nevera", "calor", "idea"],
+      build(root, props, gsap) {
+        nv.setup(root);
+        const stage = canvas(root);
+        const groundLayer = svg("g", {}, stage);
+        const fridgeLayer = svg("g", {}, stage);
+        const cartonLayer = svg("g", {}, stage);
+        const arrowLayer = svg("g", {}, stage);
+        const textLayer = svg("g", {}, stage);
+        const mascotLayer = svg("g", {}, stage);
+        const tl = gsap.timeline();
+        const MASCOT = { x: 1660, y: 905, r: 90 };
+
+        // Entrance: the ground strip and the mascot in its corner, looking towards the fridge.
+        const ground = [
+          svg("rect", { x: 0, y: 972, width: 1920, height: 54, class: "ground", "data-decor": "" }, groundLayer),
+          svg("line", { x1: 0, y1: 972, x2: 1920, y2: 972, class: "edge", "data-decor": "" }, groundLayer),
+        ];
+        tl.from(ground, { opacity: 0, duration: 0.5 }, 0);
+        const mascot = nv.mascot(mascotLayer, MASCOT.x, MASCOT.y, MASCOT.r, [-0.95, -0.3]);
+        tl.from(mascot.g, { scale: 0.6, opacity: 0, svgOrigin: `${MASCOT.x} ${MASCOT.y}`, duration: 0.6, ease: "back.out(1.6)" }, 0.2);
+
+        // the fridge pops in with the entrance, so the question is asked over it
+        const fridge = svg("g", {}, fridgeLayer);
+        const [bodyShade, body] = nv.sticker(fridge, "rect", { x: 180, y: 236, width: 700, height: 736, rx: 40 }, "panel");
+        body.classList.add("fridge-back");
+        svg("rect", { x: 228, y: 284, width: 604, height: 640, rx: 20, class: "panel-blue" }, fridge);
+        for (const y of [330, 694]) svg("rect", { x: 252, y, width: 556, height: 22, rx: 11, class: "face-paper" }, fridge);
+        for (const x of [256, 542]) {
+          svg("rect", { x, y: 760, width: 262, height: 130, rx: 16, class: "face-paper" }, fridge);
+          svg("rect", { x: x + 76, y: 782, width: 110, height: 16, rx: 8, class: "face-blue" }, fridge);
+        }
+        svg("rect", { x: 848, y: 400, width: 20, height: 180, rx: 10, class: "face-blue" }, fridge);
+        tl.from(fridge, { scale: 0.85, opacity: 0, svgOrigin: "530 972", duration: 0.7, ease: "back.out(1.4)" }, 0.3);
+
+        // pregunta: the headline writes in
+        let at = tl.duration();
+        writeIn(tl, block(root, props.headline, { x: 160, y: 96, className: "t96" }), at, 0.7);
+        tl.addLabel("pregunta");
+
+        // nevera: the carton drops onto its shelf with its warm badge
+        at = tl.duration();
+        const carton = nv.carton(cartonLayer, 560, 694, 1);
+        tl.from(carton, { y: -120, opacity: 0, duration: 0.6, ease: "back.out(1.4)" }, at);
+        const badge = nv.pill(cartonLayer, props.warm, 350, 560, 190, 76, { rot: -5, tone: "warm", size: 44 });
+        tl.from(badge.g, { scale: 0.6, opacity: 0, svgOrigin: "350 560", duration: 0.5, ease: "back.out(1.6)" }, at + 0.4);
+        tl.addLabel("nevera");
+
+        // calor: three heat arrows leave the carton, cross the wall and end in the kitchen
+        at = tl.duration();
+        const tails = [[690, 520], [690, 590], [690, 660]];
+        const tips = [[1250, 430], [1250, 590], [1250, 750]];
+        const arrows = tails.map(([x, y], i) =>
+          nv.arrow(arrowLayer, { x, y }, { x: tips[i][0], y: tips[i][1] }, { tone: "warm", w: 18 }),
+        );
+        arrows.forEach((arrow, i) => {
+          const [x, y] = tails[i];
+          tl.from(arrow, { scale: 0.05, opacity: 0, svgOrigin: `${x} ${y}`, duration: 0.7, ease: "expo.out" }, at + i * 0.18);
+        });
+        writeIn(tl, nv.stickerText(textLayer, props.word, 1300, 590, 96, { anchor: "start", tone: "warm" }), at + 0.8, 0.6);
+        tl.addLabel("calor");
+
+        // idea: a pill sticker in the kitchen zone
+        at = tl.duration();
+        const idea = nv.pill(textLayer, props.idea, 1480, 330, 540, 104, { rot: -4, tone: "blue", size: 56 });
+        tl.from(idea.g, { scale: 0.6, opacity: 0, svgOrigin: "1480 330", duration: 0.5, ease: "back.out(1.6)" }, at);
+        tl.addLabel("idea");
+
+        return tl;
+      },
+    });
+  })();
+</script>

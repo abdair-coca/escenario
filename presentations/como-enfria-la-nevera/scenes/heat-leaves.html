@@ -1,0 +1,103 @@
+<!--
+  heat-leaves: the «cocina» zone fills the screen. The hot gas runs down a big coil behind the fridge. Orange
+  arrows carry its heat into the room (22 °C, cooler than the gas); further down the gas becomes blue liquid.
+-->
+<template>
+  <style></style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas, writeIn, block } = window.sceneKit;
+    const nv = window.nevera;
+    const TUBE = 60; // inner width of the tube
+    const GAP = 105; // distance between neighbours along the tube
+
+    // The condenser: the gas comes in at the top and runs down turn by turn; the exit leaves to the right.
+    function coilRoute() {
+      return nv.route(780, 365)
+        .line(780, 420).line(1180, 420).arc(1180, 470, 50, -90, 90)
+        .line(780, 520).arc(780, 570, 50, -90, -270).mark("liquid")
+        .line(1180, 620).arc(1180, 670, 50, -90, 90)
+        .line(780, 720).arc(780, 770, 50, -90, -270)
+        .line(1180, 820).line(1650, 820);
+    }
+
+    registerScene({
+      id: "heat-leaves",
+      props: {
+        headline: "Detrás: sale el calor", // headline, top left
+        zone: "cocina", // title band of the zone
+        gas: "gas caliente", // label of the gas entering
+        heat: "calor a la cocina", // label of the heat arrows
+        air: "aire 22 °C", // temperature of the kitchen air
+        liquid: "otra vez líquido", // label of the liquid leaving
+      },
+      steps: ["bobina", "calor", "liquido"],
+      build(root, props, gsap) {
+        nv.setup(root);
+        const stage = canvas(root);
+        const zoneLayer = svg("g", {}, stage);
+        const tubeLayers = nv.tubeLayers(stage);
+        const dotLayer = svg("g", {}, stage);
+        const arrowLayer = svg("g", {}, stage);
+        const labelLayer = svg("g", {}, stage);
+        const tl = gsap.timeline();
+        const coil = coilRoute();
+
+        // Entrance: the headline and the kitchen zone.
+        writeIn(tl, block(root, props.headline, { x: 160, y: 96, className: "t96" }), 0, 0.7);
+        const zone = nv.zone(zoneLayer, { x: 100, y: 236, w: 1714, h: 764, name: props.zone, body: "panel" });
+        tl.from(zone.g, { scale: 0.92, opacity: 0, svgOrigin: "957 618", duration: 0.6, ease: "back.out(1.4)" }, 0.1);
+
+        // Orange bubbles all along the coil; past `liquid` each gets a blue droplet that replaces it in step 3.
+        const spots = [];
+        for (let s = 40; s < coil.length - 30; s += GAP) spots.push({ s, ...coil.pointAt(s), low: s > coil.marks.liquid });
+        const bubbles = spots.map((p) => svg("circle", { cx: p.x, cy: p.y, r: 23, class: "face-warm" }, dotLayer));
+        const drops = spots.filter((p) => p.low).map((p) => ({ p, node: svg("circle", { cx: p.x, cy: p.y, r: 13, class: "face-blue" }, dotLayer) }));
+        const lowBubbles = bubbles.filter((_, i) => spots[i].low);
+
+        // bobina: the coil draws itself from the top; orange bubbles pop in along it; the room's temperature
+        let at = tl.duration();
+        const tube = nv.tube(tubeLayers, coil.d(), TUBE);
+        tl.from(tube, { drawSVG: 0, duration: 1.6, ease: "power2.inOut" }, at);
+        bubbles.forEach((node, i) => {
+          const p = spots[i];
+          tl.from(node, { scale: 0, opacity: 0, svgOrigin: `${p.x} ${p.y}`, duration: 0.3, ease: "back.out(2)" }, at + 0.4 + i * 0.045);
+        });
+        writeIn(tl, nv.label(labelLayer, props.gas, 715, 362, "t56b", "end"), at + 0.5, 0.6);
+        const air = nv.pill(labelLayer, props.air, 1560, 570, 300, 76, { rot: 3, tone: "blue" });
+        tl.from(air.g, { scale: 0.6, opacity: 0, svgOrigin: "1560 570", duration: 0.5, ease: "back.out(1.6)" }, at + 1.0);
+        tl.addLabel("bobina");
+
+        // calor: orange arrows leave the coil into the room
+        at = tl.duration();
+        const arrows = [
+          [[740, 455], [350, 455]],
+          [[690, 570], [350, 590]],
+          [[690, 770], [350, 790]],
+          [[1290, 470], [1570, 430]],
+          [[1290, 670], [1570, 710]],
+        ].map(([from, to]) => ({ from, node: nv.arrow(arrowLayer, { x: from[0], y: from[1] }, { x: to[0], y: to[1] }, { tone: "warm", w: 18 }) }));
+        arrows.forEach(({ from, node }, i) => {
+          tl.from(node, { scale: 0.05, opacity: 0, svgOrigin: `${from[0]} ${from[1]}`, duration: 0.7, ease: "expo.out" }, at + i * 0.15);
+        });
+        writeIn(tl, nv.label(labelLayer, props.heat, 130, 915, "t56b"), at + 0.7, 0.6);
+        tl.addLabel("calor");
+
+        // liquido: the low bubbles shrink away and blue droplets take their place
+        at = tl.duration();
+        tl.to(lowBubbles, { scale: 0, opacity: 0, duration: 0.3, ease: "power3.in", stagger: 0.04 }, at);
+        drops.forEach(({ p, node }, i) => {
+          tl.from(node, { scale: 0, opacity: 0, svgOrigin: `${p.x} ${p.y}`, duration: 0.4, ease: "back.out(2)" }, at + 0.2 + i * 0.05);
+        });
+        writeIn(tl, nv.label(labelLayer, props.liquid, 1300, 915, "t56b"), at + 0.8, 0.6);
+        tl.addLabel("liquido");
+
+        return tl;
+      },
+    });
+  })();
+</script>

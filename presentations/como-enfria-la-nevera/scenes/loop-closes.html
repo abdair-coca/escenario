@@ -1,0 +1,155 @@
+<!--
+  loop-closes: the loop of the second scene is back with the three parts already seen (coil inside, pump,
+  coil behind) and a gap at the bottom. The valve closes the gap, a drop runs the whole loop pressing the four
+  numbered pills in order, the carton's badge falls from 25 °C to 4 °C and the idea is written under the loop.
+  The mascot has its own corner at the bottom right; the loop stays above it.
+-->
+<template>
+  <style></style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas, writeIn, block } = window.sceneKit;
+    const nv = window.nevera;
+    const TUBE = 40; // inner width of the tube
+    const SPEED = 900; // px per second for fluid that fills the tube
+    const VALVE_X = 1000;
+
+    registerScene({
+      id: "loop-closes",
+      props: {
+        headline: "Un viaje sin fin", // headline, top left
+        inside: "dentro", // title band of the left zone
+        kitchen: "cocina", // title band of the right zone
+        pills: ["#1 hierve", "#2 bomba", "#3 suelta calor", "#4 válvula"], // numbered pills, in loop order
+        captions: [
+          "La válvula baja la presión y enfría el líquido",
+          "Hierve, se aprieta, suelta calor y se enfría",
+          "Cada vuelta saca calor de la leche",
+          "Una nevera no fabrica frío: se lleva el calor.",
+        ], // one caption per step
+        start: "25 °C", // carton badge before
+        end: "4 °C", // carton badge after
+      },
+      steps: ["valvula", "giro", "leche", "idea"],
+      build(root, props, gsap) {
+        nv.setup(root);
+        const stage = canvas(root);
+        const zoneLayer = svg("g", {}, stage);
+        const tubeLayers = nv.tubeLayers(stage);
+        const fluidLayer = svg("g", {}, stage);
+        const stationLayer = svg("g", {}, stage);
+        const thingLayer = svg("g", {}, stage);
+        const dropLayer = svg("g", {}, stage);
+        const labelLayer = svg("g", {}, stage);
+        const mascotLayer = svg("g", {}, stage);
+        const tl = gsap.timeline();
+        const loop = nv.loopRoute();
+        const { compIn, compOut, gapStart, gapEnd } = loop.marks;
+        const show = nv.captions(tl, labelLayer, writeIn);
+        const MASCOT = { x: 1660, y: 935, r: 80 };
+
+        // ---- Entrance: headline, zones, the loop with its gap, the hot fluid, the pump, three pills, carton, mascot
+        writeIn(tl, block(root, props.headline, { x: 160, y: 96, className: "t96" }), 0, 0.7);
+        const zones = [nv.zone(zoneLayer, { ...nv.ZONES.inside, name: props.inside }), nv.zone(zoneLayer, { ...nv.ZONES.kitchen, name: props.kitchen })];
+        zones.forEach(({ g }, i) => {
+          const spec = i === 0 ? nv.ZONES.inside : nv.ZONES.kitchen;
+          tl.from(g, { scale: 0.9, opacity: 0, svgOrigin: `${spec.x + spec.w / 2} ${spec.y + spec.h / 2}`, duration: 0.6, ease: "back.out(1.4)" }, 0.1 + i * 0.15);
+        });
+        const tubeA = nv.tube(tubeLayers, loop.d(0, gapStart), TUBE);
+        const tubeB = nv.tube(tubeLayers, loop.d(gapEnd, loop.length), TUBE);
+        tl.from(tubeA, { drawSVG: 0, duration: 1.6, ease: "power2.inOut" }, 0.5);
+        tl.from(tubeB, { drawSVG: 0, duration: 0.6, ease: "power2.inOut" }, 1.5);
+        const hot = svg("path", { d: loop.d(compOut, gapStart), class: "fluid-warm", "stroke-width": TUBE - 16 }, fluidLayer);
+        tl.from(hot, { drawSVG: 0, duration: 1.2, ease: "power1.inOut" }, 1.3);
+
+        // the pump: a small barrel with its plunger and a few hot bubbles
+        const pump = svg("g", {}, stationLayer);
+        nv.sticker(pump, "rect", { x: 1120, y: 355, width: 220, height: 110, rx: 24 }, "panel");
+        svg("rect", { x: 1150, y: 367, width: 20, height: 86, rx: 8, class: "panel-navy", "stroke-width": 4 }, pump);
+        [[1215, 390], [1255, 390], [1295, 390], [1235, 428], [1275, 428], [1315, 428]].forEach(([x, y]) =>
+          svg("circle", { cx: x, cy: y, r: 14, class: "face-warm", "stroke-width": 3 }, pump),
+        );
+        tl.from(pump, { scale: 0.7, opacity: 0, svgOrigin: "1230 410", duration: 0.5, ease: "back.out(1.6)" }, 1.6);
+
+        // pills of the three known parts, above the coils and below the pump
+        const pillSpecs = [[props.pills[0], 330, 348, 270, -2], [props.pills[1], 1230, 520, 270, 3], [props.pills[2], 1540, 348, 400, 2]];
+        const pills = pillSpecs.map(([content, x, y, w, rot], i) => {
+          const pill = nv.pill(thingLayer, content, x, y, w, 60, { rot, tone: i === 0 ? "blue" : "warm" });
+          tl.from(pill.g, { scale: 0.6, opacity: 0, svgOrigin: `${x} ${y}`, duration: 0.45, ease: "back.out(1.6)" }, 1.9 + i * 0.15);
+          return pill;
+        });
+
+        const carton = nv.carton(thingLayer, 740, 722, 0.85);
+        const warmBadge = nv.pill(thingLayer, props.start, 540, 640, 170, 72, { rot: -5, tone: "warm", size: 44 });
+        tl.from(carton, { y: -90, opacity: 0, duration: 0.5, ease: "back.out(1.4)" }, 1.8);
+        tl.from(warmBadge.g, { scale: 0.6, opacity: 0, svgOrigin: "540 640", duration: 0.4, ease: "back.out(1.6)" }, 2.0);
+        const spark = nv.sparkle(stage, 1790, 140, 44);
+        tl.from(spark, { scale: 0.5, opacity: 0, svgOrigin: "1790 140", duration: 0.5, ease: "back.out(1.6)" }, 2.1);
+        const mascot = nv.mascot(mascotLayer, MASCOT.x, MASCOT.y, MASCOT.r, [-0.9, -0.4]);
+        tl.from(mascot.g, { scale: 0.6, opacity: 0, svgOrigin: `${MASCOT.x} ${MASCOT.y}`, duration: 0.6, ease: "back.out(1.6)" }, 2.2);
+
+        // ---- valvula: the valve closes the gap; the liquid after it turns blue and fills the cold side
+        let at = tl.duration();
+        const valve = svg("g", {}, stationLayer);
+        const y = loop.pointAt(gapStart).y;
+        svg("line", { x1: VALVE_X, y1: y, x2: VALVE_X, y2: y - 56, class: "ink-line", "stroke-width": 8 }, valve);
+        const left = `${VALVE_X - 95},${y - 48} ${VALVE_X - 95},${y + 48} ${VALVE_X},${y}`;
+        const right = `${VALVE_X + 95},${y - 48} ${VALVE_X + 95},${y + 48} ${VALVE_X},${y}`;
+        [left, right].forEach((points) => {
+          svg("polygon", { points, class: "shade", transform: "translate(6 6)" }, valve);
+          svg("polygon", { points, class: "panel-navy", "stroke-width": 4 }, valve);
+        });
+        svg("circle", { cx: VALVE_X, cy: y - 62, r: 20, class: "face-blue" }, valve);
+        const valvePill = nv.pill(thingLayer, props.pills[3], VALVE_X, 640, 300, 64, { rot: -3, tone: "blue" });
+        tl.from(valve, { scale: 0.6, opacity: 0, svgOrigin: `${VALVE_X} ${y}`, duration: 0.5, ease: "back.out(1.6)" }, at);
+        tl.from(valvePill.g, { scale: 0.6, opacity: 0, svgOrigin: `${VALVE_X} 640`, duration: 0.45, ease: "back.out(1.6)" }, at + 0.25);
+        const coldA = svg("path", { d: loop.d(gapEnd, loop.length), class: "fluid-blue", "stroke-width": TUBE - 16 }, fluidLayer);
+        const coldB = svg("path", { d: loop.d(0, compIn), class: "fluid-blue", "stroke-width": TUBE - 16 }, fluidLayer);
+        const lenA = loop.length - gapEnd;
+        tl.from(coldA, { drawSVG: 0, duration: lenA / SPEED, ease: "none" }, at + 0.5);
+        tl.from(coldB, { drawSVG: 0, duration: compIn / SPEED, ease: "none" }, at + 0.5 + lenA / SPEED);
+        show(props.captions[0], at + 0.9);
+        tl.addLabel("valvula");
+
+        // ---- giro: a drop runs the whole loop; each numbered pill presses as it passes
+        at = tl.duration();
+        const RUN = 4.2;
+        const dropShade = svg("circle", { r: 26, class: "shade", transform: "translate(5 5)" }, dropLayer);
+        const drop = svg("circle", { r: 26, class: "face-soft" }, dropLayer);
+        tl.from([dropShade, drop], { opacity: 0, duration: 0.25 }, at);
+        nv.follow(tl, dropShade, loop, at, RUN, "none");
+        nv.follow(tl, drop, loop, at, RUN, "none");
+        const stationAt = [280, (compIn + compOut) / 2, compOut + 700, (gapStart + gapEnd) / 2];
+        [pills[0], pills[1], pills[2], valvePill].forEach((pill, i) => {
+          const t = at + (stationAt[i] / loop.length) * RUN - 0.1;
+          tl.to(pill.face, { x: 6, y: 6, duration: 0.15, ease: "power2.out" }, t);
+          tl.to(pill.face, { x: 0, y: 0, duration: 0.25, ease: "power2.inOut" }, t + 0.15);
+        });
+        show(props.captions[1], at + 0.2);
+        tl.addLabel("giro");
+
+        // ---- leche: the badge falls to 4 °C and the mascot smiles
+        at = tl.duration();
+        const coldBadge = nv.pill(thingLayer, props.end, 540, 640, 170, 72, { rot: -5, tone: "blue", size: 44 });
+        tl.to(warmBadge.g, { y: 40, opacity: 0, duration: 0.35, ease: "power3.in" }, at);
+        tl.from(coldBadge.g, { y: -40, opacity: 0, duration: 0.5, ease: "back.out(1.6)" }, at + 0.25);
+        tl.to(mascot.smile, { opacity: 0, duration: 0.2 }, at + 0.5);
+        tl.to(mascot.bigSmile, { opacity: 1, duration: 0.2 }, at + 0.5);
+        tl.to(mascot.cheeks, { opacity: 1, duration: 0.3 }, at + 0.5);
+        show(props.captions[2], at + 0.2);
+        tl.addLabel("leche");
+
+        // ---- idea: the one idea under the loop
+        at = tl.duration();
+        show(props.captions[3], at);
+        tl.addLabel("idea");
+
+        return tl;
+      },
+    });
+  })();
+</script>

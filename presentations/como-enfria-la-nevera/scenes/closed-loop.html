@@ -1,0 +1,97 @@
+<!--
+  closed-loop: the world split in two zones, «dentro» (the fridge) and «cocina». One sealed tube makes a
+  loop through both, with a coil in each zone. A blue fluid fills it and a drop runs round once.
+  `.coil-in` marks the inside coil: the next scene grows out of it.
+-->
+<template>
+  <style></style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas, writeIn, block } = window.sceneKit;
+    const nv = window.nevera;
+    const TUBE = 40; // inner width of the tube
+
+    registerScene({
+      id: "closed-loop",
+      props: {
+        headline: "Un circuito cerrado", // headline, top left
+        inside: "dentro", // title band of the left zone
+        kitchen: "cocina", // title band of the right zone
+        fluid: "refrigerante", // label of the fluid
+        air: "aire 22 °C", // temperature of the kitchen air
+        captions: [
+          "Dentro de la nevera y fuera, en la cocina",
+          "Un tubo cerrado, sin salida",
+          "Siempre es el mismo líquido: nunca sale",
+        ], // one caption per step
+      },
+      steps: ["zonas", "tubo", "liquido"],
+      build(root, props, gsap) {
+        nv.setup(root);
+        const stage = canvas(root);
+        const zoneLayer = svg("g", {}, stage);
+        const tubeLayers = nv.tubeLayers(stage);
+        const fluidLayer = svg("g", {}, stage);
+        const thingLayer = svg("g", {}, stage);
+        const dropLayer = svg("g", {}, stage);
+        const labelLayer = svg("g", {}, stage);
+        const tl = gsap.timeline();
+        const loop = nv.loopRoute();
+        const show = nv.captions(tl, labelLayer, writeIn);
+
+        // Entrance: the headline.
+        writeIn(tl, block(root, props.headline, { x: 160, y: 96, className: "t96" }), 0, 0.7);
+
+        // zonas: the two zones with their bands, the carton on the left and the room air on the right
+        let at = tl.duration();
+        const zones = [
+          nv.zone(zoneLayer, { ...nv.ZONES.inside, name: props.inside }),
+          nv.zone(zoneLayer, { ...nv.ZONES.kitchen, name: props.kitchen }),
+        ];
+        zones.forEach(({ g }, i) => {
+          const spec = i === 0 ? nv.ZONES.inside : nv.ZONES.kitchen;
+          tl.from(g, { scale: 0.9, opacity: 0, svgOrigin: `${spec.x + spec.w / 2} ${spec.y + spec.h / 2}`, duration: 0.6, ease: "back.out(1.4)" }, at + i * 0.2);
+        });
+        const carton = nv.carton(thingLayer, 740, 722, 0.85);
+        const badge = nv.pill(thingLayer, "25 °C", 540, 640, 170, 72, { rot: -5, tone: "warm", size: 44 });
+        const air = nv.pill(thingLayer, props.air, 1300, 640, 290, 72, { rot: 3, tone: "blue" });
+        tl.from(carton, { y: -90, opacity: 0, duration: 0.5, ease: "back.out(1.4)" }, at + 0.5);
+        tl.from(badge.g, { scale: 0.6, opacity: 0, svgOrigin: "540 640", duration: 0.4, ease: "back.out(1.6)" }, at + 0.7);
+        tl.from(air.g, { scale: 0.6, opacity: 0, svgOrigin: "1300 640", duration: 0.4, ease: "back.out(1.6)" }, at + 0.8);
+        show(props.captions[0], at + 0.9);
+        tl.addLabel("zonas");
+
+        // tubo: the sealed tube draws itself round the loop, through both zones
+        at = tl.duration();
+        const tube = nv.tube(tubeLayers, loop.d(), TUBE);
+        tl.from(tube, { drawSVG: 0, duration: 1.8, ease: "power2.inOut" }, at);
+        const coil = svg("g", { "data-decor": "" }, stage);
+        svg("rect", { x: 130, y: 490, width: 240, height: 220, class: "coil-in", fill: "none", stroke: "none" }, coil);
+        show(props.captions[1], at + 1.2);
+        tl.addLabel("tubo");
+
+        // liquido: the tube fills with blue fluid; a drop runs once round, then the label
+        at = tl.duration();
+        const fluid = svg("path", { d: loop.d(), class: "fluid-blue", "stroke-width": TUBE - 16 }, fluidLayer);
+        tl.from(fluid, { drawSVG: 0, duration: 3.2, ease: "power1.inOut" }, at);
+        const dropShade = svg("circle", { r: 26, class: "shade", transform: "translate(5 5)" }, dropLayer);
+        const drop = svg("circle", { r: 26, class: "face-soft" }, dropLayer);
+        tl.from([dropShade, drop], { opacity: 0, duration: 0.3 }, at);
+        nv.follow(tl, dropShade, loop, at, 3.2);
+        nv.follow(tl, drop, loop, at, 3.2);
+        const leader = svg("line", { x1: 1300, y1: 488, x2: 1300, y2: 442, class: "ink-line", "stroke-width": 6 }, labelLayer);
+        const tag = nv.pill(labelLayer, props.fluid, 1300, 526, 340, 76, { rot: -3, tone: "blue", size: 44 });
+        tl.from(leader, { drawSVG: 0, duration: 0.3, ease: "power2.out" }, at + 3.0);
+        tl.from(tag.g, { scale: 0.6, opacity: 0, svgOrigin: "1300 526", duration: 0.5, ease: "back.out(1.6)" }, at + 3.1);
+        show(props.captions[2], at + 3.0);
+        tl.addLabel("liquido");
+
+        return tl;
+      },
+    });
+  })();
+</script>
