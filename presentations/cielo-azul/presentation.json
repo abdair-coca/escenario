@@ -1,0 +1,89 @@
+{
+  "title": "Por qué el cielo es azul",
+  "lang": "es",
+  "theme": "theme.css",
+  "scenes": [
+    {
+      "scene": "scenes/sunlight-mix",
+      "title": "Luz blanca",
+      "transition": { "type": "cut" },
+      "notes": {
+        "pregunta": "Casi todos hemos visto el cielo azul sin preguntarnos por qué.",
+        "sol": "La luz del sol parece blanca.",
+        "ondas": "Pero esa luz blanca es una mezcla de ondas de todos los tamaños. Las cortas se ven azules; las largas, naranjas o rojas."
+      }
+    },
+    {
+      "scene": "library/pipeline",
+      "title": "El camino de la luz",
+      "props": {
+        "title": "El camino de la luz",
+        "elements": [
+          { "id": "sol", "kind": "piece", "label": "Sol", "x": 180, "y": 430, "width": 280 },
+          { "id": "aire", "kind": "piece", "label": "Aire", "caption": "moléculas de aire", "x": 760, "y": 430, "width": 400 },
+          { "id": "ojo", "kind": "piece", "label": "Ojo", "x": 1460, "y": 430, "width": 280 },
+          { "id": "l-sa", "kind": "link", "from": "sol", "to": "aire", "label": "luz blanca", "labelAt": [485, 556] },
+          { "id": "l-ao", "kind": "link", "from": "aire", "to": "ojo", "label": "luz", "labelAt": [1274, 556] },
+          { "id": "p-1", "kind": "packet", "on": "l-sa", "text": "luz", "stop": 0.8 },
+          { "id": "p-2", "kind": "packet", "on": "l-ao", "text": "luz", "stop": 0.8 }
+        ],
+        "entrance": [],
+        "steps": [
+          { "name": "sol", "add": ["sol"] },
+          { "name": "aire", "add": ["l-sa", "aire"] },
+          { "name": "ojo", "add": ["l-ao", "ojo"] },
+          { "name": "rayo", "add": ["p-1", "p-2"] }
+        ]
+      },
+      "transition": { "type": "push", "direction": "left" },
+      "notes": {
+        "sol": "El rayo sale del sol.",
+        "aire": "Antes de llegar a ti, la luz atraviesa el aire.",
+        "ojo": "Esa capa de aire es la que cambia el color.",
+        "rayo": "Sigamos el rayo y veamos qué pasa dentro del aire."
+      }
+    },
+    {
+      "scene": "scenes/air-bounces",
+      "title": "Choques en el aire",
+      "transition": { "type": "zoom", "target": ".piece-aire" },
+      "notes": {
+        "columna": "El aire parece vacío, pero está lleno de moléculas, diminutas comparadas con una onda de luz.",
+        "rayo": "Al principio, la luz avanza en línea recta.",
+        "choque": "Cada choque la envía en otra dirección. A esto se le llama dispersión."
+      }
+    },
+    {
+      "scene": "scenes/blue-bounces",
+      "title": "El azul rebota más",
+      "transition": { "type": "wipe", "color": "var(--accent)" },
+      "notes": {
+        "molecula": "Vamos a comparar dos colores en la misma molécula.",
+        "naranja": "La onda larga casi no se desvía.",
+        "azul": "La onda corta choca y se desvía muchas más veces.",
+        "barras": "El número es aproximado; lo importante es la diferencia."
+      }
+    },
+    {
+      "scene": "scenes/sky-dome",
+      "title": "Azul desde todo el cielo",
+      "transition": { "type": "reveal", "target": ".scatter", "duration": 1.2 },
+      "notes": {
+        "cupula": "El aire te rodea por todas partes, como una cúpula.",
+        "azul": "Desde cualquier punto del cielo llega luz azul hasta tus ojos.",
+        "sol": "La luz directa del sol casi no rebota; el azul viene del aire."
+      }
+    },
+    {
+      "scene": "scenes/sunset",
+      "title": "Al atardecer",
+      "transition": { "type": "push", "direction": "down" },
+      "notes": {
+        "sol": "Al atardecer, la luz atraviesa mucho más aire.",
+        "azul": "Por el camino, el azul sale del rayo.",
+        "naranja": "Lo que llega al ojo es naranja o rojo: por eso el atardecer se ve cálido.",
+        "idea": "Cerramos con la idea."
+      }
+    }
+  ]
+}

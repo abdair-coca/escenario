@@ -1,0 +1,113 @@
+<!--
+  air-bounces: the air is a column of molecules. The beam comes down from the top, straight at first;
+  at two molecules it scatters, and short arrows leave in every direction.
+-->
+<template>
+  <style>
+    .shade { fill: var(--ink); stroke: var(--ink); stroke-width: 6; stroke-linejoin: round; }
+    .panel { fill: var(--paper); stroke: var(--ink); stroke-width: 6; stroke-linejoin: round; }
+    .molecule { fill: var(--accent-2); stroke: var(--ink); stroke-width: 4; }
+    .hit { fill: var(--accent); stroke: var(--ink); stroke-width: 4; }
+    .ink-line { fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
+    .paper-line { fill: none; stroke: var(--paper); }
+    .ink-head { fill: var(--ink); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+
+    // Hard shadow: a copy of the shape in ink, offset right and down, drawn first. Returns both parts.
+    function sticker(parent, tag, attrs, cls, offset = 10) {
+      const shade = svg(tag, { ...attrs, class: "shade", transform: `translate(${offset} ${offset})` }, parent);
+      const body = svg(tag, { ...attrs, class: cls }, parent);
+      return [shade, body];
+    }
+
+    function label(parent, content, x, y, cls = "t40", anchor = "start") {
+      return text(parent, content, { class: cls, x, y, "text-anchor": anchor, "dominant-baseline": "central" });
+    }
+
+    // An arrow from p to q with a head. Ink arrows are a plain ink line; the rest are a coloured line in an ink outline.
+    function arrow(parent, p, q) {
+      const len = Math.hypot(q.x - p.x, q.y - p.y);
+      const ux = (q.x - p.x) / len;
+      const uy = (q.y - p.y) / len;
+      const neck = { x: q.x - ux * 16, y: q.y - uy * 16 };
+      const base = { x: q.x - ux * 24, y: q.y - uy * 24 };
+      const head = `${q.x},${q.y} ${base.x - uy * 14},${base.y + ux * 14} ${base.x + uy * 14},${base.y - ux * 14}`;
+      return [
+        svg("line", { x1: p.x, y1: p.y, x2: neck.x, y2: neck.y, class: "ink-line", "stroke-width": 7 }, parent),
+        svg("polygon", { points: head, class: "ink-head" }, parent),
+      ];
+    }
+
+    registerScene({
+      id: "air-bounces",
+      props: {
+        headline: "Choques en el aire", // headline, top left
+      },
+      steps: ["columna", "rayo", "choque"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const columnLayer = svg("g", {}, stage);
+        const moleculeLayer = svg("g", {}, stage);
+        const rayLayer = svg("g", {}, stage);
+        const hitLayer = svg("g", {}, stage);
+        const labelLayer = svg("g", {}, stage);
+        const tl = gsap.timeline();
+
+        // The two molecules the beam hits (drawn in step 3). The grid leaves a space around them.
+        const hits = [[980, 480], [980, 750]];
+        const grid = [];
+        for (const y of [300, 390, 480, 570, 660, 750, 840]) {
+          for (const x of [700, 800, 900, 1100, 1200]) {
+            if (hits.every(([hx, hy]) => Math.hypot(x - hx, y - hy) > 135)) grid.push([x, y]);
+          }
+        }
+
+        // Entrance: the headline, the column of air, its caption and its molecules (step 1).
+        writeIn(tl, block(root, props.headline, { x: 160, y: 96, className: "t96" }), 0, 0.6);
+        const column = sticker(columnLayer, "rect", { x: 640, y: 250, width: 680, height: 650, rx: 32 }, "panel");
+        tl.from(column, { opacity: 0, duration: 0.5, ease: "power2.out" }, 0.2);
+        writeIn(tl, label(labelLayer, "moléculas de aire", 980, 950, "t40", "middle"), 0.6, 0.6);
+        const molecules = grid.flatMap(([x, y]) => sticker(moleculeLayer, "circle", { cx: x, cy: y, r: 22 }, "molecule", 6));
+        tl.from(molecules, { scale: 0.5, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "back.out(1.6)", stagger: 0.03 }, 0.9);
+        tl.addLabel("columna");
+
+        // rayo: the white beam comes down from the top
+        let at = tl.duration();
+        const ray = [
+          svg("line", { x1: 980, y1: 226, x2: 980, y2: 900, class: "ink-line", "stroke-width": 46 }, rayLayer),
+          svg("line", { x1: 980, y1: 226, x2: 980, y2: 900, class: "paper-line", "stroke-width": 30 }, rayLayer),
+        ];
+        const rayHead = svg("polygon", { points: "980,926 962,890 998,890", class: "ink-head" }, rayLayer);
+        tl.from(ray, { drawSVG: 0, duration: 1.0, ease: "power1.in" }, at);
+        tl.from(rayHead, { opacity: 0, duration: 0.3, ease: "power2.out" }, at + 0.9);
+        tl.addLabel("rayo");
+
+        // choque: at each hit the beam scatters in every direction
+        at = tl.duration();
+        const hitParts = [];
+        const scatter = [];
+        for (const [cx, cy] of hits) {
+          hitParts.push(...sticker(hitLayer, "circle", { cx, cy, r: 26 }, "hit", 6));
+          for (const deg of [0, 60, 120, 180, 240, 300]) {
+            const a = (deg * Math.PI) / 180;
+            const from = { x: cx + 40 * Math.cos(a), y: cy + 40 * Math.sin(a) };
+            const to = { x: cx + 100 * Math.cos(a), y: cy + 100 * Math.sin(a) };
+            scatter.push(...arrow(hitLayer, from, to));
+          }
+        }
+        tl.from(hitParts, { scale: 0.5, opacity: 0, transformOrigin: "50% 50%", duration: 0.4, ease: "back.out(1.6)" }, at);
+        tl.from(scatter, { opacity: 0, duration: 0.35, stagger: 0.05, ease: "expo.out" }, at + 0.3);
+        tl.addLabel("choque");
+
+        return tl;
+      },
+    });
+  })();
+</script>

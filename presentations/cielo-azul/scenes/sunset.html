@@ -1,0 +1,171 @@
+<!--
+  sunset: the sun sits low on the horizon, so the beam crosses a long band of air. The blue leaves the beam
+  on the way; the orange wave reaches the eye. The closing idea is written under the horizon.
+-->
+<template>
+  <style>
+    .shade { fill: var(--ink); stroke: var(--ink); stroke-width: 6; stroke-linejoin: round; }
+    .air { fill: var(--accent-2); stroke: var(--ink); stroke-width: 6; }
+    .sun { fill: var(--paper); stroke: var(--ink); stroke-width: 6; stroke-linejoin: round; }
+    .eye { fill: var(--paper); stroke: var(--ink); stroke-width: 6; }
+    .pupil { fill: var(--ink); }
+    .shine { fill: var(--paper); }
+    .ink-line { fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
+    .paper-line { fill: none; stroke: var(--paper); }
+    .blue-line { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; }
+    .warm-line { fill: none; stroke: var(--warm); stroke-linecap: round; stroke-linejoin: round; }
+    .blue-head { fill: var(--accent); stroke: var(--ink); stroke-width: 4; stroke-linejoin: round; }
+    .ground { fill: var(--accent-3); }
+    .edge { fill: none; stroke: var(--ink); stroke-width: 6; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, addStyles, writeIn, block } = window.sceneKit;
+
+    // Hard shadow: a copy of the shape in ink, offset right and down, drawn first. Returns both parts.
+    function sticker(parent, tag, attrs, cls, offset = 10) {
+      const shade = svg(tag, { ...attrs, class: "shade", transform: `translate(${offset} ${offset})` }, parent);
+      const body = svg(tag, { ...attrs, class: cls }, parent);
+      return [shade, body];
+    }
+
+    function label(parent, content, x, y, cls = "t40", anchor = "start") {
+      return text(parent, content, { class: cls, x, y, "text-anchor": anchor, "dominant-baseline": "central" });
+    }
+
+    // A polyline along `dir` from `origin`, swinging `amp` px across it (along `normal`) with the given period.
+    function along(origin, dir, normal, from, to, amp, period) {
+      let d = "";
+      for (let t = from; t <= to; t += 4) {
+        const swing = amp * Math.sin((2 * Math.PI * (t - from)) / period);
+        const x = origin.x + t * dir.x + swing * normal.x;
+        const y = origin.y + t * dir.y + swing * normal.y;
+        d += `${d ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
+      }
+      return d;
+    }
+
+    // A wave: an ink outline under a coloured line.
+    function wave(parent, d, color) {
+      return [
+        svg("path", { d, class: "ink-line", "stroke-width": 16 }, parent),
+        svg("path", { d, class: `${color}-line`, "stroke-width": 8 }, parent),
+      ];
+    }
+
+    // An arrow from p to q with a blue head and an ink outline.
+    function arrow(parent, p, q) {
+      const len = Math.hypot(q.x - p.x, q.y - p.y);
+      const ux = (q.x - p.x) / len;
+      const uy = (q.y - p.y) / len;
+      const neck = { x: q.x - ux * 16, y: q.y - uy * 16 };
+      const base = { x: q.x - ux * 24, y: q.y - uy * 24 };
+      const head = `${q.x},${q.y} ${base.x - uy * 14},${base.y + ux * 14} ${base.x + uy * 14},${base.y - ux * 14}`;
+      const line = { x1: p.x, y1: p.y, x2: neck.x, y2: neck.y };
+      return [
+        svg("line", { ...line, class: "ink-line", "stroke-width": 16 }, parent),
+        svg("line", { ...line, class: "blue-line", "stroke-width": 8 }, parent),
+        svg("polygon", { points: head, class: "blue-head" }, parent),
+      ];
+    }
+
+    function starPoints(cx, cy, outer, inner, points) {
+      const pts = [];
+      for (let i = 0; i < points * 2; i += 1) {
+        const r = i % 2 === 0 ? outer : inner;
+        const a = (Math.PI * i) / points - Math.PI / 2;
+        pts.push(`${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`);
+      }
+      return pts.join(" ");
+    }
+
+    registerScene({
+      id: "sunset",
+      props: {
+        headline: "Al atardecer", // headline, top left
+        idea: "El aire desvía la luz azul mucho más que la roja, así que el cielo se ve azul.", // closing line
+      },
+      steps: ["sol", "azul", "naranja", "idea"],
+      build(root, props, gsap) {
+        addStyles(root);
+        const stage = canvas(root);
+        const horizonLayer = svg("g", {}, stage);
+        const bandLayer = svg("g", {}, stage);
+        const eyeLayer = svg("g", {}, stage);
+        const sunLayer = svg("g", {}, stage);
+        const tubeLayer = svg("g", {}, stage);
+        const arrowLayer = svg("g", {}, stage);
+        const waveLayer = svg("g", {}, stage);
+        const labelLayer = svg("g", {}, stage);
+        const tl = gsap.timeline();
+        const S = { x: 330, y: 700 }; // the sun, on the horizon
+        const E = { x: 1620, y: 430 }; // the eye, at the end of the beam
+        const L = Math.hypot(E.x - S.x, E.y - S.y);
+        const dir = { x: (E.x - S.x) / L, y: (E.y - S.y) / L };
+        const nrm = { x: -dir.y, y: dir.x }; // points down and to the right, across the beam
+        const pointAt = (t, k = 0) => ({ x: S.x + t * dir.x + k * nrm.x, y: S.y + t * dir.y + k * nrm.y });
+        const BEAM_FROM = 100; // beam starts at the edge of the sun
+        const BEAM_TO = L - 66; // and stops at the edge of the eye
+        const BAND_FROM = 120;
+        const BAND_TO = L - 66;
+        const centre = pointAt((BAND_FROM + BAND_TO) / 2);
+        const bandLen = BAND_TO - BAND_FROM;
+        const tilt = (Math.atan2(dir.y, dir.x) * 180) / Math.PI;
+
+        // Entrance: the headline, the horizon, the band of air and the eye.
+        writeIn(tl, block(root, props.headline, { x: 160, y: 96, className: "t96" }), 0, 0.6);
+        const horizon = [
+          svg("rect", { x: 0, y: 756, width: 1920, height: 54, class: "ground", "data-decor": "" }, horizonLayer),
+          svg("line", { x1: 0, y1: 756, x2: 1920, y2: 756, class: "edge", "data-decor": "" }, horizonLayer),
+        ];
+        tl.from(horizon, { opacity: 0, duration: 0.5 }, 0.1);
+        const band = svg("g", { transform: `rotate(${tilt} ${centre.x} ${centre.y})` }, bandLayer);
+        svg("rect", { x: centre.x - bandLen / 2 + 10, y: centre.y - 130 + 10, width: bandLen, height: 260, rx: 40, class: "shade" }, band);
+        svg("rect", { x: centre.x - bandLen / 2, y: centre.y - 130, width: bandLen, height: 260, rx: 40, class: "air" }, band);
+        label(band, "más aire", centre.x - 240, centre.y - 70, "t40", "middle");
+        tl.from(band, { opacity: 0, duration: 0.7, ease: "power2.out" }, 0.2);
+        const eye = sticker(eyeLayer, "circle", { cx: E.x, cy: E.y, r: 64 }, "eye");
+        const pupil = svg("circle", { cx: E.x - 22, cy: E.y + 8, r: 26, class: "pupil" }, eyeLayer);
+        const shine = svg("circle", { cx: E.x - 38, cy: E.y - 16, r: 8, class: "shine" }, eyeLayer);
+        tl.from([...eye, pupil, shine], { scale: 0.6, opacity: 0, svgOrigin: `${E.x} ${E.y}`, duration: 0.6, ease: "back.out(1.6)" }, 0.4);
+
+        // sol: the sun on the horizon and its white beam to the eye
+        let t = tl.duration();
+        const from = pointAt(BEAM_FROM);
+        const to = pointAt(BEAM_TO);
+        const tube = [
+          svg("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, class: "ink-line", "stroke-width": 48 }, tubeLayer),
+          svg("line", { x1: from.x, y1: from.y, x2: to.x, y2: to.y, class: "paper-line", "stroke-width": 36 }, tubeLayer),
+        ];
+        tl.from(tube, { drawSVG: 0, duration: 0.8, ease: "power2.inOut" }, t);
+        const sun = sticker(sunLayer, "polygon", { points: starPoints(S.x, S.y, 84, 56, 14) }, "sun");
+        tl.from(sun, { scale: 0.6, opacity: 0, svgOrigin: `${S.x} ${S.y}`, duration: 0.6, ease: "back.out(1.6)" }, t);
+        tl.addLabel("sol");
+
+        // azul: blue leaves the beam on the way
+        t = tl.duration();
+        const scattered = [330, 560, 790, 1020, 1200].flatMap((s) => arrow(arrowLayer, pointAt(s, 36), pointAt(s, 112)));
+        tl.from(scattered, { opacity: 0, duration: 0.4, stagger: 0.12, ease: "expo.out" }, t);
+        writeIn(tl, label(labelLayer, "azul fuera del rayo", 980, 722), t + 0.4, 0.5);
+        tl.addLabel("azul");
+
+        // naranja: the orange wave reaches the eye
+        t = tl.duration();
+        const orange = wave(waveLayer, along(S, dir, nrm, BEAM_FROM, BEAM_TO, 12, 100), "warm");
+        tl.from(orange, { drawSVG: 0, duration: 1.2, ease: "power2.inOut" }, t);
+        writeIn(tl, label(labelLayer, "naranja", 1620, 320, "t40", "middle"), t + 0.9, 0.5);
+        tl.addLabel("naranja");
+
+        // idea: the one idea, written under the horizon
+        t = tl.duration();
+        writeIn(tl, block(root, props.idea, { x: 160, y: 850, className: "t56", width: 1600 }), t, 0.8);
+        tl.addLabel("idea");
+
+        return tl;
+      },
+    });
+  })();
+</script>
