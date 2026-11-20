@@ -1,0 +1,129 @@
+<!--
+  encapsulation: Robi's battery sits behind a frame with a padlock. Reading robi.__bateria from outside
+  fails (AttributeError); robi.cargar(20) goes in through the method and the battery goes 100 -> 120;
+  robi.cargar(-50) is stopped by the if and the battery stays 120. A row at the bottom shows the Python
+  naming conventions: nombre (public), _nombre (protected), __nombre (private).
+-->
+<template>
+  <style>
+    .frame { fill: none; stroke: var(--ink); stroke-width: 8; stroke-linejoin: round; }
+    .lock-body { fill: var(--accent-3); stroke: var(--ink); stroke-width: 5; stroke-linejoin: round; }
+    .shackle { fill: none; stroke: var(--ink); stroke-width: 9; stroke-linecap: round; }
+    .stop { stroke: var(--block); stroke-width: 8; stroke-linecap: round; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas } = window.sceneKit;
+    const sk = window.stickerKit;
+    const { shop } = window;
+    const ROBI = { x: 400, y: 640, s: 1.05 };
+    const FRAME = { x: 308, y: 548, w: 200, h: 104 };
+    const LOCK = { x: 508, y: 556 };
+    const LANE = { x: 1200, y: 800 }; // where each call appears
+    const DOOR = { x: 516, y: 610 }; // where the call arrows end
+
+    registerScene({
+      id: "encapsulation",
+      props: {
+        headline: "Encapsulamiento", // headline, top left
+        code: [
+          "class Robot:",
+          "    def __init__(self, nombre):",
+          "        self.__bateria = 100",
+          "    def cargar(self, cantidad):",
+          "        if cantidad > 0:",
+          "            self.__bateria += cantidad",
+        ], // class on the right
+        conventions: ["nombre = público", "_nombre = protegido", "__nombre = privado"], // row at the bottom
+        read: "robi.__bateria", // call that fails
+        error: "AttributeError", // what it raises
+        good: "robi.cargar(20)", // call through the method
+        bad: "robi.cargar(-50)", // call the if rejects
+        after: "120", // battery after the good call
+      },
+      steps: ["privado", "directo", "metodo", "valida"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        const robi = shop.robot(stage, ROBI.x, ROBI.y, { s: ROBI.s, tone: "soft", name: "Robi" });
+        tl.from(robi.g, { scale: 0.85, opacity: 0, svgOrigin: `${ROBI.x} ${ROBI.y}`, duration: 0.5, ease: "expo.out" }, 0);
+        shop.headline(tl, root, props.headline, 0.2);
+        const code = shop.code(root, props.code, 900, 280);
+        shop.typeIn(tl, code.lineEls, 0.5);
+
+        // privado: a frame and a padlock close over the battery; the conventions row
+        let at = tl.duration();
+        const frame = svg("rect", { x: FRAME.x, y: FRAME.y, width: FRAME.w, height: FRAME.h, rx: 24, class: "frame" }, stage);
+        tl.from(frame, { drawSVG: 0, duration: 0.6, ease: "power2.inOut" }, at);
+        const lock = svg("g", {}, stage);
+        const shackle = svg("path", { d: `M${LOCK.x - 16},${LOCK.y - 8} V${LOCK.y - 26} A16,16 0 0 1 ${LOCK.x + 16},${LOCK.y - 26} V${LOCK.y - 8}`, class: "shackle" }, lock);
+        sk.sticker(lock, "rect", { x: LOCK.x - 30, y: LOCK.y - 12, width: 60, height: 48, rx: 10 }, "lock-body", 6);
+        shop.pop(tl, lock, LOCK.x, LOCK.y, at + 0.4);
+        tl.from(shackle, { y: -16, duration: 0.3, ease: "power3.in" }, at + 0.8);
+        const privateBar = shop.barIn(tl, code, [2], at + 0.6);
+        const xs = [370, 900, 1440];
+        props.conventions.forEach((line, i) => {
+          const t = shop.tag(stage, line, xs[i], 970, { mono: true, tone: i === 2 ? "accent" : "paper" });
+          shop.pop(tl, t, xs[i], 970, at + 1.0 + i * 0.12);
+        });
+        tl.addLabel("privado");
+
+        // A call: its pill in the lane and an arrow to the battery door (whole or cut short).
+        function call(content, at, short = false) {
+          const pill = shop.tag(stage, content, LANE.x, LANE.y, { mono: true });
+          shop.pop(tl, pill, LANE.x, LANE.y, at);
+          const from = { x: LANE.x - pill.width / 2 - 14, y: LANE.y - 20 };
+          const end = short ? { x: from.x + (DOOR.x - from.x) * 0.45, y: from.y + (DOOR.y - from.y) * 0.45 } : DOOR;
+          const line = shop.leader(stage, from, end);
+          line.style.strokeWidth = "8px";
+          tl.from(line, { drawSVG: 0, duration: 0.5, ease: "power2.out" }, at + 0.35);
+          return { pill, line, end };
+        }
+        const clear = (parts, at) => tl.to(parts, { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+
+        // directo: reading the private attribute from outside bumps on the padlock
+        at = tl.duration();
+        const read = call(props.read, at);
+        tl.to(lock, { keyframes: { rotation: [0, -14, 12, -6, 0] }, svgOrigin: `${LOCK.x} ${LOCK.y + 30}`, duration: 0.5, ease: "power1.inOut" }, at + 0.85);
+        const readX = shop.mark(stage, LANE.x + read.pill.width / 2 + 52, LANE.y, false);
+        shop.pop(tl, readX, LANE.x + read.pill.width / 2 + 52, LANE.y, at + 1.0);
+        const error = shop.tag(stage, props.error, LANE.x, LANE.y + 86, { mono: true, tone: "block" });
+        shop.pop(tl, error, LANE.x, LANE.y + 86, at + 1.1);
+        tl.addLabel("directo");
+
+        // metodo: the method goes in; the battery goes 100 -> 120
+        at = tl.duration();
+        clear([read.pill, read.line, readX, error], at);
+        shop.barOut(tl, privateBar, at);
+        const good = call(props.good, at + 0.25);
+        const codeBar = shop.barIn(tl, code, [3, 5], at + 0.6);
+        shop.swap(tl, robi.battery.num, shop.batteryNumber(robi, props.after), at + 1.0);
+        shop.press(tl, robi.battery.g, at + 1.0);
+        const okMark = shop.mark(stage, LANE.x + good.pill.width / 2 + 52, LANE.y, true);
+        shop.pop(tl, okMark, LANE.x + good.pill.width / 2 + 52, LANE.y, at + 1.2);
+        tl.addLabel("metodo");
+
+        // valida: a negative value is stopped by the if; the battery stays 120
+        at = tl.duration();
+        clear([good.pill, good.line, okMark], at);
+        shop.barOut(tl, codeBar, at);
+        shop.barIn(tl, code, [4], at + 0.3);
+        const bad = call(props.bad, at + 0.25, true);
+        const e = bad.end;
+        const stop = svg("path", { d: `M${e.x - 22},${e.y - 22} L${e.x + 22},${e.y + 22} M${e.x + 22},${e.y - 22} L${e.x - 22},${e.y + 22}`, class: "stop" }, stage);
+        tl.from(stop, { scale: 0, svgOrigin: `${e.x} ${e.y}`, duration: 0.35, ease: "back.out(2)" }, at + 0.9);
+        const badX = shop.mark(stage, LANE.x + bad.pill.width / 2 + 52, LANE.y, false);
+        shop.pop(tl, badX, LANE.x + bad.pill.width / 2 + 52, LANE.y, at + 1.05);
+        tl.addLabel("valida");
+        return tl;
+      },
+    });
+  })();
+</script>

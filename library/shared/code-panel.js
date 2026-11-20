@@ -5,7 +5,7 @@
 (function () {
   const WORDS = {
     python: {
-      kw: ["def", "class", "if", "elif", "else", "return", "is", "not", "and", "or", "while", "for", "in"],
+      kw: ["def", "class", "if", "elif", "else", "return", "is", "not", "and", "or", "while", "for", "in", "from", "import", "pass"],
       const: ["None", "True", "False"],
     },
     js: {

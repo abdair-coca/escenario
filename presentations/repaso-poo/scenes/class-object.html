@@ -1,0 +1,90 @@
+<!--
+  class-object: the Robot class is a navy blueprint with a dashed robot and empty slots. Two real robots
+  (Robi and Caja) come out of it, each with the line of code that builds it. Caja spends battery and
+  Robi does not: every object keeps its own data. Robi is `.made-robi` (scene 3 grows out of it).
+-->
+<template>
+  <style>
+    .slot { font-family: var(--font-code); font-size: 40px; fill: var(--paper); letter-spacing: -0.03em; }
+    .call { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .call-str { fill: var(--accent); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, writeIn } = window.sceneKit;
+    const sk = window.stickerKit;
+    const { shop } = window;
+    const PLAN = { x: 140, y: 270, w: 620, h: 730 };
+    const MADE = [
+      { name: "Robi", variable: "robi", x: 1070, tone: "soft", cls: "made-robi" },
+      { name: "Caja", variable: "caja", x: 1595, tone: "blue", cls: "made-caja" },
+    ];
+
+    registerScene({
+      id: "class-object",
+      props: {
+        headline: "Clase y objeto", // headline, top left
+        className: "class Robot", // title on the blueprint
+        note: "cada objeto tiene sus propios datos", // sentence under the robots at the last step
+      },
+      steps: ["plano", "objetos", "independientes"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        sk.sparkle(stage, 1770, 120, 34);
+        sk.sparkle(stage, 1660, 180, 22);
+        shop.headline(tl, root, props.headline, 0.1);
+
+        // plano: the blueprint panel, then the dashed robot draws itself, then the empty slots
+        let at = 0.4;
+        const plan = svg("g", {}, stage);
+        sk.sticker(plan, "rect", { x: PLAN.x, y: PLAN.y, width: PLAN.w, height: PLAN.h, rx: 32 }, "panel-navy", 10);
+        const title = sk.stickerText(plan, props.className, PLAN.x + PLAN.w / 2, PLAN.y + 64, 56);
+        title.querySelectorAll("text").forEach((t) => t.classList.add("tag-text--mono"));
+        tl.from(plan, { opacity: 0, scale: 0.92, svgOrigin: "450 635", duration: 0.5, ease: "expo.out" }, at);
+        const ghost = shop.robot(plan, 450, 655, { s: 0.85, tone: "plan" });
+        tl.from(ghost.g, { opacity: 0, duration: 0.6, ease: "power2.out" }, at + 0.4);
+        const slots = ["nombre = ?", "bateria = ?"].map((line, i) =>
+          text(plan, line, { x: 450, y: 880 + i * 62, class: "slot", "text-anchor": "middle", "dominant-baseline": "central" }),
+        );
+        slots.forEach((slot, i) => writeIn(tl, slot, at + 0.9 + i * 0.25, 0.45));
+        tl.addLabel("plano");
+
+        // objetos: an arrow, then Robi and Caja pop out with the line that builds each one
+        at = tl.duration();
+        const arrow = sk.arrow(stage, { x: 790, y: 600 }, { x: 890, y: 600 });
+        tl.from(arrow, { scaleX: 0, svgOrigin: "790 600", duration: 0.4, ease: "expo.out" }, at);
+        const made = MADE.map((spec, i) => {
+          const r = shop.robot(stage, spec.x, 590, { s: 0.8, tone: spec.tone, name: spec.name, cls: spec.cls });
+          shop.pop(tl, r.g, spec.x, 700, at + 0.3 + i * 0.5);
+          const call = text(stage, "", { x: spec.x, y: 870, class: "call", "text-anchor": "middle", "dominant-baseline": "central" });
+          svg("tspan", {}, call).textContent = `${spec.variable} = Robot(`;
+          svg("tspan", { class: "call-str" }, call).textContent = `"${spec.name}"`;
+          svg("tspan", {}, call).textContent = ")";
+          writeIn(tl, call, at + 0.55 + i * 0.5, 0.5);
+          return r;
+        });
+        tl.addLabel("objetos");
+
+        // independientes: Caja spends battery (100 -> 40), Robi keeps 100
+        at = tl.duration();
+        const caja = made[1];
+        tl.to(caja.battery.level, { scaleX: 0.4, duration: 0.7, ease: "power2.inOut" }, at);
+        const forty = shop.batteryNumber(caja, "40");
+        shop.swap(tl, caja.battery.num, forty, at + 0.25);
+        shop.press(tl, made[0].battery.g, at + 0.7);
+        const note = text(stage, props.note, { x: 1330, y: 960, class: "t40", "text-anchor": "middle", "dominant-baseline": "central" });
+        writeIn(tl, note, at + 0.9, 0.6);
+        tl.addLabel("independientes");
+        return tl;
+      },
+    });
+  })();
+</script>

@@ -1,0 +1,97 @@
+<!--
+  polymorphism: on the left, both child classes rewrite trabajar() (overriding) and a loop calls it on
+  every robot. On the right, Robi and Caja; a pointer `r` walks from one to the other and each answers
+  in its own speech bubble. Last, a pill with the rule.
+-->
+<template>
+  <style></style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { canvas } = window.sceneKit;
+    const { shop } = window;
+    const BOTS = [
+      { name: "Robi", x: 1200, tone: "soft" },
+      { name: "Caja", x: 1610, tone: "blue" },
+    ];
+    const BOT_Y = 650;
+
+    registerScene({
+      id: "polymorphism",
+      props: {
+        headline: "Polimorfismo", // headline, top left
+        code: [
+          "class RobotHeladero(Robot):",
+          "    def trabajar(self):",
+          '        return "¡Sirvo un helado!"',
+          "",
+          "class RobotCajero(Robot):",
+          "    def trabajar(self):",
+          '        return "Cobro $3"',
+        ], // the two overrides
+        overrides: [1, 5], // lines lit at "sobrescribir"
+        returns: [2, 6], // line lit when each robot answers
+        loop: ["for r in [robi, caja]:", "    print(r.trabajar())"], // the loop under the classes
+        answers: ["¡Sirvo un helado!", "Cobro $3"], // speech bubbles, one per robot
+        rule: "mismo mensaje, distinta respuesta", // pill at the last step
+      },
+      steps: ["sobrescribir", "bucle", "respuestas", "idea"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        shop.headline(tl, root, props.headline, 0);
+        const bots = BOTS.map((spec, i) => {
+          const r = shop.robot(stage, spec.x, BOT_Y, { s: 0.75, tone: spec.tone, name: spec.name });
+          shop.pop(tl, r.g, spec.x, BOT_Y, 0.2 + i * 0.12);
+          return r;
+        });
+
+        // sobrescribir: the two classes type in; both def trabajar lines light up
+        let at = tl.duration();
+        const code = shop.code(root, props.code, 150, 250);
+        shop.typeIn(tl, code.lineEls, at);
+        const overrideBars = props.overrides.map((line, i) => shop.barIn(tl, code, [line], at + 1.0 + i * 0.15));
+        tl.addLabel("sobrescribir");
+
+        // bucle: the loop; the pointer r sits under Robi
+        at = tl.duration();
+        overrideBars.forEach((bar) => shop.barOut(tl, bar, at));
+        const loop = shop.code(root, props.loop, 150, 760);
+        shop.typeIn(tl, loop.lineEls, at + 0.2);
+        const pointer = shop.tag(stage, "r", BOTS[0].x, 920, { mono: true, tone: "blue", size: 48 });
+        shop.pop(tl, pointer, BOTS[0].x, 920, at + 0.7);
+        tl.addLabel("bucle");
+
+        // respuestas: Robi answers, the pointer moves, Caja answers
+        at = tl.duration();
+        const loopBar = shop.barIn(tl, loop, [1], at);
+        let returnBar = null;
+        BOTS.forEach((spec, i) => {
+          const t = at + 0.3 + i * 1.2;
+          if (i) tl.to(pointer, { x: spec.x - BOTS[0].x, duration: 0.6, ease: "power2.inOut" }, t - 0.6);
+          if (returnBar) shop.barOut(tl, returnBar, t - 0.3);
+          returnBar = shop.barIn(tl, code, [props.returns[i]], t);
+          const b = shop.bubble(stage, spec.x, 320, props.answers[i], { x: spec.x, y: 400 });
+          shop.pop(tl, b, spec.x, 400, t + 0.2);
+          shop.press(tl, bots[i].g, t + 0.1);
+        });
+        tl.addLabel("respuestas");
+
+        // idea: the rule
+        at = tl.duration();
+        shop.barOut(tl, loopBar, at);
+        shop.barOut(tl, returnBar, at);
+        const rule = shop.tag(stage, props.rule, 560, 975, { tone: "blue", rot: -2 });
+        shop.pop(tl, rule, 560, 975, at + 0.1);
+        tl.addLabel("idea");
+        return tl;
+      },
+    });
+  })();
+</script>

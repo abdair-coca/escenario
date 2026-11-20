@@ -1,0 +1,99 @@
+<!--
+  inheritance: a class diagram. Robot on top; RobotHeladero and RobotCajero below with UML arrows up to it.
+  The parent's members slide down into the children in grey ("heredado"), then each child adds its own.
+  Last, the child's code shows super().__init__ and a pill says "es un" next to the arrows.
+-->
+<template>
+  <style></style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { canvas, writeIn } = window.sceneKit;
+    const { shop } = window;
+    const SIZE = { band: 76, row: 56 };
+    const PARENT = { x: 560, y: 230, w: 500 };
+    const KIDS = [
+      { x: 180, y: 650, w: 540 },
+      { x: 900, y: 650, w: 540 },
+    ];
+
+    registerScene({
+      id: "inheritance",
+      props: {
+        headline: "Herencia", // headline, top left
+        parent: { title: "Robot", rows: ["nombre", "bateria", "trabajar()", "cargar()"] }, // parent card
+        inherited: ["nombre, bateria", "trabajar(), cargar()"], // grey rows copied into each child
+        children: [
+          { title: "RobotHeladero", rows: ["sabores", "servir()"] },
+          { title: "RobotCajero", rows: ["caja", "cobrar()"] },
+        ], // child cards and their own members
+        inheritedTag: "heredado", // tag between the arrows
+        isA: "es un", // pill next to the arrows
+        code: [
+          "class RobotHeladero(Robot):",
+          "    def __init__(self, n):",
+          "        super().__init__(n)",
+          "        self.sabores = []",
+        ], // child's code on the right
+      },
+      steps: ["padre", "hijos", "propio", "super"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        shop.headline(tl, root, props.headline, 0);
+
+        // padre: the parent card
+        let at = 0.4;
+        const parent = shop.card(stage, PARENT.x, PARENT.y, PARENT.w, props.parent.title, props.parent.rows, SIZE);
+        shop.pop(tl, parent.g, PARENT.x + PARENT.w / 2, PARENT.y + parent.h / 2, at);
+        tl.addLabel("padre");
+
+        // hijos: two child cards, arrows up to the parent, inherited rows slide down in grey
+        at = tl.duration();
+        const kids = props.children.map((spec, i) => {
+          const k = KIDS[i];
+          const rows = [...props.inherited.map((text) => ({ text, tone: "muted" })), ...spec.rows];
+          const c = shop.card(stage, k.x, k.y, k.w, spec.title, rows, SIZE);
+          const cx = k.x + k.w / 2;
+          const arrow = shop.inherits(stage, { x: cx, y: k.y - 6 }, { x: PARENT.x + PARENT.w / 2 + (i ? 110 : -110), y: PARENT.y + parent.h + 6 });
+          tl.from(c.g, { y: 60, opacity: 0, duration: 0.5, ease: "expo.out" }, at + i * 0.15);
+          tl.from(arrow.line, { drawSVG: 0, duration: 0.4, ease: "power2.out" }, at + 0.4 + i * 0.1);
+          shop.pop(tl, arrow.head, PARENT.x + PARENT.w / 2, PARENT.y + parent.h, at + 0.6 + i * 0.1);
+          c.rows.slice(0, props.inherited.length).forEach((row, j) => {
+            tl.from(row.g, { y: -(k.y - PARENT.y), opacity: 0, duration: 0.6, ease: "power2.inOut" }, at + 0.8 + j * 0.12);
+          });
+          return c;
+        });
+        const heredado = shop.tag(stage, props.inheritedTag, 810, 600, { rot: -3 });
+        shop.pop(tl, heredado, 810, 600, at + 1.2);
+        tl.addLabel("hijos");
+
+        // propio: each child adds its own members in ink
+        at = tl.duration();
+        kids.forEach((c, i) => {
+          c.rows.slice(props.inherited.length).forEach((row, j) => {
+            writeIn(tl, row.g, at + i * 0.3 + j * 0.15, 0.45);
+          });
+        });
+        tl.addLabel("propio");
+
+        // super: the child's code; super() lights up; "es un" next to the arrows
+        at = tl.duration();
+        const code = shop.code(root, props.code, 1150, 250);
+        shop.typeIn(tl, code.lineEls, at);
+        shop.barIn(tl, code, [0], at + 0.8);
+        shop.barIn(tl, code, [2], at + 1.1);
+        const isA = shop.tag(stage, props.isA, 500, 585, { tone: "blue", rot: -4, size: 48 });
+        shop.pop(tl, isA, 500, 585, at + 1.3);
+        tl.addLabel("super");
+        return tl;
+      },
+    });
+  })();
+</script>

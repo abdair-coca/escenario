@@ -1,0 +1,118 @@
+<!--
+  attributes-methods: Robi big on the left, the Robot class on the right. Attributes get tags on the
+  robot (name, battery) and the self lines light up; methods appear as two buttons on its chest and the
+  def lines light up; then robi.trabajar() presses a button and the battery goes 100 -> 90.
+-->
+<template>
+  <style>
+    .call { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .say-key { fill: var(--accent); font-weight: 700; }
+    .button { fill: var(--accent); stroke: var(--ink); stroke-width: 5; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, writeIn } = window.sceneKit;
+    const sk = window.stickerKit;
+    const { shop } = window;
+    const ROBI = { x: 520, y: 640, s: 1.15 };
+    const CODE = { x: 1000, y: 290 };
+
+    // A sentence "key: rest" with the key in blue, left-aligned at (x, y).
+    function saying(parent, key, rest, x, y) {
+      const t = text(parent, "", { x, y, class: "t40", "dominant-baseline": "central" });
+      svg("tspan", { class: "say-key" }, t).textContent = key;
+      svg("tspan", {}, t).textContent = rest;
+      return t;
+    }
+
+    registerScene({
+      id: "attributes-methods",
+      props: {
+        headline: "Atributos y métodos", // headline, top left
+        code: [
+          "class Robot:",
+          "    def __init__(self, nombre):",
+          "        self.nombre = nombre",
+          "        self.bateria = 100",
+          "    def trabajar(self):",
+          "        self.bateria -= 10",
+          "    def cargar(self, cantidad):",
+          "        self.bateria += cantidad",
+        ], // the class on the right (8 lines max)
+        attributeLines: [2, 3], // lines lit at "atributos"
+        methodLines: [4, 7], // first and last line lit at "metodos"
+        callLines: [4, 5], // lines lit at "llamada"
+      },
+      steps: ["atributos", "metodos", "llamada"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        const robi = shop.robot(stage, ROBI.x, ROBI.y, { s: ROBI.s, tone: "soft", name: "Robi", cls: "big-robi" });
+        tl.from(robi.g, { scale: 0.8, opacity: 0, svgOrigin: `${ROBI.x} ${ROBI.y}`, duration: 0.6, ease: "expo.out" }, 0);
+        shop.headline(tl, root, props.headline, 0.2);
+        const code = shop.code(root, props.code, CODE.x, CODE.y);
+        shop.typeIn(tl, code.lineEls, 0.5);
+        const notes = svg("g", {}, stage);
+        const tags = svg("g", {}, stage);
+
+        // atributos: tags on the name and the battery; the self lines light up
+        let at = tl.duration();
+        const bat = robi.at(-80, -38);
+        const batLeader = shop.leader(tags, { x: 330, y: 520 }, bat);
+        const batTag = shop.tag(tags, "bateria", 215, 520, { mono: true, rot: -3 });
+        const nameLeader = shop.leader(tags, { x: 330, y: 870 }, { x: 452, y: ROBI.y + 152 * ROBI.s + 44 });
+        const nameTag = shop.tag(tags, "nombre", 215, 870, { mono: true, rot: 3 });
+        tl.from([batLeader, nameLeader], { drawSVG: 0, duration: 0.4, ease: "power2.out" }, at);
+        shop.pop(tl, batTag, 215, 520, at + 0.2);
+        shop.pop(tl, nameTag, 215, 870, at + 0.3);
+        let bar = shop.barIn(tl, code, props.attributeLines, at + 0.3);
+        const has = saying(notes, "atributos", ": lo que tiene", CODE.x, 860);
+        writeIn(tl, has, at + 0.6, 0.5);
+        tl.addLabel("atributos");
+
+        // metodos: two buttons on the chest with tags; the def lines light up
+        at = tl.duration();
+        const buttons = [-46, 46].map((lx) => {
+          const p = robi.at(lx, 52);
+          const g = svg("g", {}, robi.g);
+          svg("circle", { cx: p.x + 6, cy: p.y + 6, r: 24, class: "shade" }, g);
+          svg("circle", { cx: p.x, cy: p.y, r: 24, class: "button" }, g);
+          shop.pop(tl, g, p.x, p.y, at + (lx < 0 ? 0 : 0.12));
+          return { g, p };
+        });
+        const methodTags = [["trabajar()", 610], ["cargar()", 720]].map(([name, y], i) => {
+          const leader = shop.leader(tags, { x: 800, y }, buttons[i].p);
+          const t = shop.tag(tags, name, 890, y, { mono: true, rot: i ? 2 : -2 });
+          tl.from(leader, { drawSVG: 0, duration: 0.4, ease: "power2.out" }, at + 0.25 + i * 0.1);
+          shop.pop(tl, t, 890, y, at + 0.4 + i * 0.12);
+          return t;
+        });
+        shop.barOut(tl, bar, at);
+        bar = shop.barIn(tl, code, props.methodLines, at + 0.3);
+        const does = saying(notes, "métodos", ": lo que hace", CODE.x, 930);
+        writeIn(tl, does, at + 0.6, 0.5);
+        tl.addLabel("metodos");
+
+        // llamada: robi.trabajar() presses the first button; the battery goes 100 -> 90
+        at = tl.duration();
+        const call = text(stage, "robi.trabajar()", { x: ROBI.x, y: 975, class: "call", "text-anchor": "middle", "dominant-baseline": "central" });
+        writeIn(tl, call, at, 0.5);
+        shop.barOut(tl, bar, at);
+        bar = shop.barIn(tl, code, props.callLines, at + 0.3);
+        shop.press(tl, buttons[0].g, at + 0.5);
+        shop.press(tl, methodTags[0], at + 0.5);
+        tl.to(robi.battery.level, { scaleX: 0.9, duration: 0.5, ease: "power2.inOut" }, at + 0.8);
+        shop.swap(tl, robi.battery.num, shop.batteryNumber(robi, "90"), at + 0.85);
+        tl.addLabel("llamada");
+        return tl;
+      },
+    });
+  })();
+</script>

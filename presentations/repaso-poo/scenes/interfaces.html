@@ -1,0 +1,126 @@
+<!--
+  interfaces: a contract card "Cobrable" with cobrar(monto). Caja (a robot) and a coin machine (not a
+  robot) both sign it; one function pagar() works with both, a coin goes to each and both tick. Last, two
+  pills compare inheritance ("es un") and interfaces ("puede hacer").
+-->
+<template>
+  <style>
+    .machine { fill: var(--accent-3); stroke: var(--ink); stroke-width: 6; stroke-linejoin: round; }
+    .screen { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .slot { fill: var(--ink); }
+    .coin { fill: var(--accent-2); stroke: var(--ink); stroke-width: 5; }
+    .coin-text { font-weight: 700; fill: var(--ink); font-size: 40px; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas } = window.sceneKit;
+    const sk = window.stickerKit;
+    const { shop } = window;
+    const CAJA = { x: 360, y: 700 };
+    const MACHINE = { x: 1440, y: 520, w: 240, h: 320 };
+    const SLOT = { x: 1560, y: 710 };
+
+    function coinMachine(parent) {
+      const g = svg("g", {}, parent);
+      const { x, y, w, h } = MACHINE;
+      sk.sticker(g, "rect", { x, y, width: w, height: h, rx: 30 }, "machine", 10);
+      svg("rect", { x: x + 40, y: y + 36, width: w - 80, height: 96, rx: 16, class: "screen" }, g);
+      text(g, "$", { x: x + w / 2, y: y + 86, class: "t56 mid" });
+      svg("rect", { x: SLOT.x - 8, y: SLOT.y - 34, width: 16, height: 68, rx: 8, class: "slot" }, g);
+      svg("rect", { x: x + 40, y: y + h - 70, width: w - 80, height: 40, rx: 12, class: "screen" }, g);
+      return g;
+    }
+
+    function coin(parent, cx, cy) {
+      const g = svg("g", {}, parent);
+      svg("circle", { cx: cx + 5, cy: cy + 5, r: 32, class: "shade" }, g);
+      svg("circle", { cx, cy, r: 32, class: "coin" }, g);
+      text(g, "$", { x: cx, y: cy + 2, class: "coin-text mid" });
+      return g;
+    }
+
+    registerScene({
+      id: "interfaces",
+      props: {
+        headline: "Interfaces", // headline, top left
+        contract: { title: "Cobrable", rows: ["cobrar(monto)"] }, // the interface card
+        contractTag: "contrato", // tag on the card
+        signers: ["class RobotCajero(Robot, Cobrable):", "class Maquina(Cobrable):"], // classes that sign it
+        machine: "Maquina", // tag under the coin machine
+        use: ["def pagar(cosa):", "    cosa.cobrar(3)"], // a function that only needs cobrar()
+        compare: ["herencia: es un", "interfaz: puede hacer"], // pills at the last step
+      },
+      steps: ["contrato", "firmantes", "uso", "diferencia"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        shop.headline(tl, root, props.headline, 0);
+
+        // contrato: the interface card
+        let at = 0.4;
+        const card = shop.card(stage, 760, 250, 400, props.contract.title, props.contract.rows, { band: 76, row: 56, tone: "navy" });
+        shop.pop(tl, card.g, 960, 326, at);
+        const tag = shop.tag(stage, props.contractTag, 1220, 260, { rot: 6 });
+        shop.pop(tl, tag, 1220, 260, at + 0.3);
+        tl.addLabel("contrato");
+
+        // firmantes: Caja and the coin machine sign the contract
+        at = tl.duration();
+        const caja = shop.robot(stage, CAJA.x, CAJA.y, { s: 0.8, tone: "blue", name: "Caja" });
+        shop.pop(tl, caja.g, CAJA.x, CAJA.y, at);
+        const machine = coinMachine(stage);
+        const machineTag = shop.tag(stage, props.machine, 1560, 900, { mono: true });
+        shop.pop(tl, machine, 1560, 680, at + 0.15);
+        shop.pop(tl, machineTag, 1560, 900, at + 0.25);
+        const arrows = [
+          shop.inherits(stage, { x: 480, y: 470 }, { x: 756, y: 380 }),
+          shop.inherits(stage, { x: 1460, y: 510 }, { x: 1164, y: 380 }),
+        ];
+        arrows.forEach((a, i) => {
+          tl.from(a.line, { drawSVG: 0, duration: 0.4, ease: "power2.out" }, at + 0.5 + i * 0.1);
+          tl.from(a.head, { opacity: 0, duration: 0.2 }, at + 0.8 + i * 0.1);
+        });
+        const signers = shop.code(root, props.signers, 540, 560);
+        shop.typeIn(tl, signers.lineEls, at + 0.9);
+        tl.addLabel("firmantes");
+
+        // uso: pagar() sends a coin to each; both tick
+        at = tl.duration();
+        const use = shop.code(root, props.use, 700, 760);
+        shop.typeIn(tl, use.lineEls, at);
+        shop.barIn(tl, use, [1], at + 0.5);
+        [
+          { to: caja.at(0, 30), mark: { x: 480, y: 530 } },
+          { to: SLOT, mark: { x: 1730, y: 560 } },
+        ].forEach((spec, i) => {
+          const start = { x: 1180, y: 850 };
+          const c = coin(stage, start.x, start.y);
+          const t = at + 0.7 + i * 1.0;
+          tl.from(c, { opacity: 0, scale: 0.5, svgOrigin: `${start.x} ${start.y}`, duration: 0.25, ease: "expo.out" }, t);
+          tl.to(c, { x: spec.to.x - start.x, y: spec.to.y - start.y, duration: 0.6, ease: "power2.inOut" }, t + 0.25);
+          tl.to(c, { opacity: 0, duration: 0.15, ease: "power3.in" }, t + 0.8);
+          const ok = shop.mark(stage, spec.mark.x, spec.mark.y, true, 30);
+          shop.pop(tl, ok, spec.mark.x, spec.mark.y, t + 0.85);
+        });
+        tl.addLabel("uso");
+
+        // diferencia: inheritance is what you are; an interface is what you can do
+        at = tl.duration();
+        props.compare.forEach((line, i) => {
+          const x = i ? 1300 : 620;
+          const pill = shop.tag(stage, line, x, 980, { tone: i ? "blue" : "navy", rot: i ? 2 : -2 });
+          shop.pop(tl, pill, x, 980, at + i * 0.2);
+        });
+        tl.addLabel("diferencia");
+        return tl;
+      },
+    });
+  })();
+</script>

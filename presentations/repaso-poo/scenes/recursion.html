@@ -1,0 +1,129 @@
+<!--
+  recursion: Ana's cone with three scoops on the left; contar(cono) on the top right. Each call is a card
+  that piles on top of the previous one, with one scoop less (the top scoop of the cone fades). The empty
+  cone is the base case (0, in green). On the way back each card adds one: 1, 2, 3, the scoops come back
+  and the result lands on the cone. A bracket names the pile: the call stack.
+-->
+<template>
+  <style>
+    .call-card { fill: var(--paper); stroke: var(--ink); stroke-width: 5; }
+    .call-card--base { stroke: var(--ok); stroke-width: 8; }
+    .call-text { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .ret { font-family: var(--font-code); font-size: 44px; font-weight: 700; fill: var(--accent); }
+    .ret--base { fill: var(--ok); }
+    .brace { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas } = window.sceneKit;
+    const { shop } = window;
+    const CONE = { x: 300, top: 640, w: 170, h: 250 };
+    const R = 60;
+    const CARD = { x: 580, w: 440, h: 96 };
+    const CARD_YS = [920, 805, 690, 575]; // centres, first call at the bottom
+    const FLAVORS = ["vainilla", "fresa", "chocolate"];
+
+    // A call card: contar([ scoops ]) with n mini scoops, centred on y.
+    function callCard(parent, y, n) {
+      const g = svg("g", {}, parent);
+      svg("rect", { x: CARD.x + 6, y: y - CARD.h / 2 + 6, width: CARD.w, height: CARD.h, rx: 24, class: "shade" }, g);
+      const rect = svg("rect", { x: CARD.x, y: y - CARD.h / 2, width: CARD.w, height: CARD.h, rx: 24, class: "call-card" }, g);
+      const open = text(g, "contar([", { x: CARD.x + 28, y, class: "call-text", "dominant-baseline": "central" });
+      let x = CARD.x + 28 + open.getComputedTextLength() + 8;
+      for (let i = 0; i < n; i += 1) {
+        shop.scoop(g, x + 18, y, 18, FLAVORS[i]);
+        x += 46;
+      }
+      text(g, "])", { x: x + (n ? 2 : 0), y, class: "call-text", "dominant-baseline": "central" });
+      return { g, rect };
+    }
+
+    registerScene({
+      id: "recursion",
+      props: {
+        headline: "Recursividad", // headline, top left
+        code: [
+          "def contar(cono):",
+          "    if not cono:",
+          "        return 0",
+          "    return 1 + contar(cono[:-1])",
+        ], // the recursive function, top right
+        stack: "pila de llamadas", // pill on the bracket
+        total: "= 3 bolas", // result on the cone
+      },
+      steps: ["definicion", "baja", "base", "sube", "pila"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        shop.headline(tl, root, props.headline, 0);
+        const coneG = svg("g", {}, stage);
+        const cone = shop.cone(coneG, CONE.x, CONE.top, { w: CONE.w, h: CONE.h });
+        const scoops = FLAVORS.map((f, i) => shop.scoop(coneG, CONE.x, cone.scoopY(i, R), R, f));
+        tl.from(coneG, { scale: 0.85, opacity: 0, svgOrigin: `${CONE.x} 700`, duration: 0.5, ease: "expo.out" }, 0.1);
+        const code = shop.code(root, props.code, 1070, 260);
+
+        // definicion: the function types in; the line where it calls itself lights up
+        let at = tl.duration();
+        shop.typeIn(tl, code.lineEls, at);
+        let bar = shop.barIn(tl, code, [3], at + 0.9);
+        tl.addLabel("definicion");
+
+        // baja: three calls pile up, each with one scoop less; the cone's top scoop fades each time
+        at = tl.duration();
+        const cards = [3, 2, 1].map((n, i) => {
+          const card = callCard(stage, CARD_YS[i], n);
+          tl.from(card.g, { y: 60, opacity: 0, duration: 0.4, ease: "expo.out" }, at + i * 0.6);
+          if (i > 0) tl.to(scoops[3 - i], { opacity: 0.2, duration: 0.3, ease: "power2.out" }, at + i * 0.6);
+          return card;
+        });
+        tl.addLabel("baja");
+
+        // base: the empty cone returns 0 (base case, green)
+        at = tl.duration();
+        tl.to(scoops[0], { opacity: 0.2, duration: 0.3, ease: "power2.out" }, at);
+        const base = callCard(stage, CARD_YS[3], 0);
+        base.rect.classList.add("call-card--base");
+        tl.from(base.g, { y: 60, opacity: 0, duration: 0.4, ease: "expo.out" }, at);
+        shop.barOut(tl, bar, at);
+        bar = shop.barIn(tl, code, [1, 2], at + 0.2);
+        const zero = text(stage, "→ 0", { x: CARD.x + CARD.w + 30, y: CARD_YS[3], class: "ret ret--base", "dominant-baseline": "central" });
+        tl.from(zero, { opacity: 0, x: -20, duration: 0.4, ease: "expo.out" }, at + 0.5);
+        tl.addLabel("base");
+
+        // sube: back down the pile, each call adds one; the scoops come back; 3 lands on the cone
+        at = tl.duration();
+        shop.barOut(tl, bar, at);
+        bar = shop.barIn(tl, code, [3], at + 0.2);
+        [2, 1, 0].forEach((cardIndex, k) => {
+          const t = at + 0.3 + k * 0.5;
+          const ret = text(stage, `→ ${k + 1}`, { x: CARD.x + CARD.w + 30, y: CARD_YS[cardIndex], class: "ret", "dominant-baseline": "central" });
+          tl.from(ret, { opacity: 0, x: -20, duration: 0.35, ease: "expo.out" }, t);
+          tl.to(scoops[k], { opacity: 1, duration: 0.3, ease: "power2.out" }, t);
+        });
+        const total = shop.tag(stage, props.total, CONE.x, 300, { tone: "blue", rot: -3, size: 48 });
+        shop.pop(tl, total, CONE.x, 300, at + 1.9);
+        tl.addLabel("sube");
+
+        // pila: a bracket around the cards: the call stack
+        at = tl.duration();
+        shop.barOut(tl, bar, at);
+        const bx = CARD.x + CARD.w + 150;
+        const top = CARD_YS[3] - CARD.h / 2;
+        const bottom = CARD_YS[0] + CARD.h / 2;
+        const brace = svg("path", { d: `M${bx - 20},${top} H${bx} V${bottom} H${bx - 20}`, class: "brace" }, stage);
+        tl.from(brace, { drawSVG: 0, duration: 0.5, ease: "power2.inOut" }, at);
+        const pill = shop.tag(stage, props.stack, bx + 230, (top + bottom) / 2 + 30, { tone: "blue", rot: -3 });
+        shop.pop(tl, pill, bx + 230, (top + bottom) / 2 + 30, at + 0.4);
+        tl.addLabel("pila");
+        return tl;
+      },
+    });
+  })();
+</script>

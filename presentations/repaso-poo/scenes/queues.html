@@ -1,0 +1,99 @@
+<!--
+  queues: Robi behind the counter on the left, customers in line to its right (front next to the counter).
+  Dani joins at the back (append); Robi serves Ana a cone (popleft), she steps out of the line and the
+  rest move forward. Last, the FIFO rule next to "pila = LIFO". Ana's cone is `.served-cone`
+  (scene 14 zooms into it).
+-->
+<template>
+  <style></style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas } = window.sceneKit;
+    const sk = window.stickerKit;
+    const { shop } = window;
+    const XS = [700, 900, 1100, 1300]; // spots in the line, front first
+    const LINE_Y = 650;
+    const TONES = ["soft", "blue", "navy", "soft"];
+    const SERVED = { x: 540, y: 380 }; // where Ana stands after being served
+
+    registerScene({
+      id: "queues",
+      props: {
+        headline: "Colas", // headline, top left
+        names: ["Ana", "Beto", "Caro", "Dani"], // the first three wait; the last one arrives
+        code: ['fila = deque(["Ana", "Beto", "Caro"])', 'fila.append("Dani")', "fila.popleft()"],
+        result: '"Ana"', // what popleft() returns
+        front: "frente", // label over the first spot
+        back: "final", // label over the last spot
+        rule: "FIFO: primero en entrar, primero en salir", // pill at the last step
+        contrast: "pila = LIFO", // reminder next to the rule
+      },
+      steps: ["fila", "llega", "atiende", "fifo"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        shop.headline(tl, root, props.headline, 0);
+        const robi = shop.robot(stage, 320, 590, { s: 0.8, tone: "soft" });
+        const counter = svg("g", {}, stage);
+        sk.sticker(counter, "rect", { x: 150, y: 640, width: 360, height: 170, rx: 24 }, "panel-navy", 10);
+        sk.stickerText(counter, "Robi", 330, 725, 48);
+        tl.from([robi.g, counter], { y: 80, opacity: 0, duration: 0.5, ease: "expo.out", stagger: 0.1 }, 0.2);
+        const code = shop.code(root, props.code, 600, 840);
+
+        // fila: three customers in order; labels for the front and the back
+        let at = tl.duration();
+        const people = props.names.map((name, i) => shop.customer(stage, XS[i], LINE_Y, { name, tone: TONES[i] }));
+        people.slice(0, 3).forEach((p, i) => tl.from(p, { y: 60, opacity: 0, duration: 0.45, ease: "back.out(1.6)" }, at + i * 0.12));
+        tl.set(people[3], { opacity: 0 }, 0);
+        shop.typeIn(tl, [code.lineEls[0]], at + 0.3);
+        const front = shop.tag(stage, props.front, XS[0], 470, { tone: "blue", rot: -3 });
+        const back = shop.tag(stage, props.back, XS[2], 470, { rot: 3 });
+        shop.pop(tl, front, XS[0], 470, at + 0.7);
+        shop.pop(tl, back, XS[2], 470, at + 0.85);
+        tl.addLabel("fila");
+
+        // llega: Dani joins at the back
+        at = tl.duration();
+        shop.typeIn(tl, [code.lineEls[1]], at);
+        let bar = shop.barIn(tl, code, [1], at + 0.3);
+        tl.fromTo(people[3], { x: 400, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, ease: "power3.out" }, at + 0.3);
+        tl.to(back, { x: XS[3] - XS[2], duration: 0.5, ease: "power2.inOut" }, at + 0.8);
+        tl.addLabel("llega");
+
+        // atiende: Robi hands Ana a cone; she steps out; everyone moves up one spot
+        at = tl.duration();
+        shop.typeIn(tl, [code.lineEls[2]], at);
+        shop.barOut(tl, bar, at);
+        bar = shop.barIn(tl, code, [2], at + 0.3);
+        const served = svg("g", { class: "served-cone" }, stage);
+        const c = shop.cone(served, 470, 560, { w: 48, h: 70 });
+        ["vainilla", "fresa", "chocolate"].forEach((f, i) => shop.scoop(served, 470, c.scoopY(i, 20), 20, f));
+        shop.pop(tl, served, 470, 560, at + 0.4);
+        shop.press(tl, robi.g, at + 0.4);
+        tl.to(served, { x: XS[0] + 70 - 470, y: 20, duration: 0.5, ease: "power2.inOut" }, at + 0.8);
+        tl.to([people[0], served], { x: `+=${SERVED.x - XS[0]}`, y: `+=${SERVED.y - LINE_Y}`, duration: 0.6, ease: "power2.inOut" }, at + 1.35);
+        people.slice(1).forEach((p, i) => tl.to(p, { x: XS[i] - XS[i + 1], duration: 0.5, ease: "power2.inOut" }, at + 1.6 + i * 0.08));
+        tl.to(back, { x: 0, duration: 0.5, ease: "power2.inOut" }, at + 1.75);
+        const result = shop.tag(stage, props.result, 1060, 984, { mono: true, tone: "accent" });
+        shop.pop(tl, result, 1060, 984, at + 1.9);
+        tl.addLabel("atiende");
+
+        // fifo: the rule, with the stack reminder
+        at = tl.duration();
+        const rule = shop.tag(stage, props.rule, 1320, 300, { tone: "blue", rot: -2 });
+        shop.pop(tl, rule, 1320, 300, at);
+        const lifo = shop.tag(stage, props.contrast, 1600, 400, { rot: 3 });
+        shop.pop(tl, lifo, 1600, 400, at + 0.3);
+        tl.addLabel("fifo");
+        return tl;
+      },
+    });
+  })();
+</script>

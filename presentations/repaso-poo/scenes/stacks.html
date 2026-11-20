@@ -1,0 +1,96 @@
+<!--
+  stacks: a big cone. Three scoops land on it one after another as three append lines type in, and a
+  "cima" arrow follows the top. pop() lifts the top scoop off (chocolate). Last, the LIFO rule and two
+  everyday examples.
+-->
+<template>
+  <style>
+    .flavor { font-size: 40px; font-weight: 600; fill: var(--ink); }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas } = window.sceneKit;
+    const sk = window.stickerKit;
+    const { shop } = window;
+    const CONE = { x: 560, top: 650, w: 220, h: 330 };
+    const R = 80;
+
+    registerScene({
+      id: "stacks",
+      props: {
+        headline: "Pilas", // headline, top left
+        scoops: [["vainilla", "vainilla"], ["fresa", "fresa"], ["chocolate", "chocolate"]], // [class, label], bottom to top
+        code: ["cono = []", 'cono.append("vainilla")', 'cono.append("fresa")', 'cono.append("chocolate")', "cono.pop()"],
+        top: "cima", // tag on the top scoop
+        result: '"chocolate"', // what pop() returns
+        rule: "LIFO: último en entrar, primero en salir", // pill at the last step
+        examples: ["Ctrl+Z", "botón atrás"], // everyday stacks
+      },
+      steps: ["apilar", "sacar", "lifo"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        shop.headline(tl, root, props.headline, 0);
+        const cone = shop.cone(stage, CONE.x, CONE.top, { w: CONE.w, h: CONE.h });
+        tl.from(cone.g, { y: 80, opacity: 0, duration: 0.5, ease: "expo.out" }, 0.2);
+        const code = shop.code(root, props.code, 1040, 300);
+        shop.typeIn(tl, [code.lineEls[0]], 0.5);
+        const scoopLayer = svg("g", {}, stage);
+        const topLayer = svg("g", {}, stage);
+
+        // apilar: each append drops a scoop on top; "cima" follows the top
+        let at = tl.duration();
+        const cima = svg("g", {}, topLayer);
+        const cimaTag = shop.tag(cima, props.top, 860, 0, { tone: "blue", rot: -3 });
+        const cimaArrow = sk.arrow(cima, { x: 760, y: 0 }, { x: 660, y: 0 }, { w: 12 });
+        const ys = props.scoops.map((_, i) => cone.scoopY(i, R));
+        const scoops = props.scoops.map(([flavor, label], i) => {
+          const t = at + i * 0.55;
+          const g = svg("g", {}, scoopLayer);
+          shop.scoop(g, CONE.x, ys[i], R, flavor);
+          text(g, label, { x: CONE.x - R - 30, y: ys[i], class: "flavor", "text-anchor": "end", "dominant-baseline": "central" });
+          tl.from(g, { y: -260, opacity: 0, duration: 0.45, ease: "power3.in" }, t);
+          tl.fromTo(g, { scaleY: 0.88 }, { scaleY: 1, svgOrigin: `${CONE.x} ${ys[i] + R}`, duration: 0.25, ease: "back.out(2)" }, t + 0.45);
+          shop.typeIn(tl, [code.lineEls[i + 1]], t);
+          if (i === 0) {
+            gsap.set(cima, { y: ys[0] });
+            tl.from(cima, { opacity: 0, duration: 0.3 }, t + 0.5);
+          } else {
+            tl.to(cima, { y: ys[i], duration: 0.35, ease: "power2.out" }, t + 0.45);
+          }
+          return g;
+        });
+        tl.addLabel("apilar");
+
+        // sacar: pop() lifts the top scoop off; "cima" drops to fresa
+        at = tl.duration();
+        shop.typeIn(tl, [code.lineEls[4]], at);
+        shop.barIn(tl, code, [4], at + 0.3);
+        tl.to(scoops[2], { y: -170, x: 140, opacity: 0, duration: 0.6, ease: "power3.in" }, at + 0.4);
+        tl.to(cima, { y: ys[1], duration: 0.4, ease: "power2.inOut" }, at + 0.8);
+        const result = shop.tag(stage, props.result, 1520, 570, { mono: true, tone: "accent" });
+        shop.pop(tl, result, 1520, 570, at + 0.9);
+        tl.addLabel("sacar");
+
+        // lifo: the rule and two everyday stacks
+        at = tl.duration();
+        const rule = shop.tag(stage, props.rule, 1330, 760, { tone: "blue", rot: -2 });
+        shop.pop(tl, rule, 1330, 760, at);
+        props.examples.forEach((ex, i) => {
+          const x = i ? 1480 : 1130;
+          const t = shop.tag(stage, ex, x, 890, { mono: i === 0, rot: i ? 3 : -3 });
+          shop.pop(tl, t, x, 890, at + 0.3 + i * 0.15);
+        });
+        tl.addLabel("lifo");
+        return tl;
+      },
+    });
+  })();
+</script>

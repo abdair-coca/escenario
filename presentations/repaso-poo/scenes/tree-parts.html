@@ -1,0 +1,117 @@
+<!--
+  tree-parts: a node is an object (valor, izq, der). That node becomes the root of the orders tree, which
+  grows level by level; tags name the root, a child and a leaf. Last, the rule: the root and its children
+  in order under the tree (30 < 50 < 70). Uses the centred layout of bst-tree.js and ends exactly as
+  bst-walk starts with `previousTitle` and `previousFocus`, so the cut into it does not jump.
+-->
+<template>
+  <style>
+    .stub { stroke: var(--ink); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 2 14; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="/library/shared/bst-tree.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas, addStyles } = window.sceneKit;
+    const { shop, bstTree } = window;
+    const { CENTERED } = bstTree;
+
+    registerScene({
+      id: "tree-parts",
+      props: {
+        headline: "Árboles binarios", // same headline bst-walk receives as previousTitle
+        values: [50, 30, 70, 20, 40, 60, 80], // orders, in insertion order
+        code: [
+          "class Nodo:",
+          "    def __init__(self, valor):",
+          "        self.valor = valor",
+          "        self.izq = None",
+          "        self.der = None",
+        ], // the node class under the first node
+        parts: { root: "raíz", child: "hijo", leaf: "hoja" }, // tags on the tree
+        focus: 50, // node whose children spell the rule under the tree
+      },
+      steps: ["nodo", "arbol", "regla"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        addStyles(root, bstTree.CSS);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        shop.headline(tl, root, props.headline, 0);
+        const group = svg("g", { class: "tree" }, stage);
+        gsap.set(group, { ...CENTERED, svgOrigin: "0 0" });
+        const tree = bstTree.draw(group, props.values);
+        const at0 = (v) => bstTree.toCentered(tree.nodes.get(v));
+        const rootValue = props.values[0];
+        const r = at0(rootValue);
+
+        // nodo: one node with its value and two empty links, and its class
+        let at = 0.3;
+        const others = props.values.slice(1);
+        others.forEach((v) => {
+          gsap.set(tree.nodes.get(v).g.children, { opacity: 0 });
+          gsap.set(tree.edges.get(v), { opacity: 0 });
+        });
+        const rootNode = tree.nodes.get(rootValue);
+        tl.from(rootNode.g, { scale: 0, transformOrigin: "50% 50%", duration: 0.5, ease: "back.out(1.6)" }, at);
+        const extras = svg("g", {}, stage);
+        const stubs = [-1, 1].map((side) => svg("line", { x1: r.x + side * 60, y1: r.y + 55, x2: r.x + side * 170, y2: r.y + 150, class: "stub" }, extras));
+        tl.from(stubs, { opacity: 0, duration: 0.3 }, at + 0.4);
+        const labels = [
+          shop.tag(extras, "izq = None", r.x - 300, r.y + 180, { mono: true, rot: -2 }),
+          shop.tag(extras, "der = None", r.x + 300, r.y + 180, { mono: true, rot: 2 }),
+          shop.tag(extras, "valor = 50", r.x + 330, r.y - 20, { mono: true, tone: "accent", rot: 3 }),
+        ];
+        labels.forEach((l, i) => shop.pop(tl, l, r.x, r.y + 100, at + 0.5 + i * 0.12));
+        const valueLead = shop.leader(extras, { x: r.x + 160, y: r.y - 14 }, { x: r.x + 80, y: r.y - 6 });
+        tl.from(valueLead, { drawSVG: 0, duration: 0.3 }, at + 0.8);
+        const code = shop.code(root, props.code, 560, 620);
+        shop.typeIn(tl, code.lineEls, at + 0.6);
+        tl.addLabel("nodo");
+
+        // arbol: code and tags leave; the tree grows a level at a time; tags for root, child, leaf
+        at = tl.duration();
+        tl.to([extras, code.block], { opacity: 0, duration: 0.3, ease: "power3.in" }, at);
+        others.forEach((v) => {
+          const depth = tree.nodes.get(v).model.depth;
+          const t = at + 0.3 + (depth - 1) * 0.45;
+          tl.to(tree.edges.get(v), { opacity: 1, duration: 0.01 }, t);
+          tl.from(tree.edges.get(v), { drawSVG: 0, duration: 0.35, ease: "power2.out" }, t);
+          tl.to(tree.nodes.get(v).g.children, { opacity: 1, duration: 0.01 }, t + 0.2);
+          tl.from(tree.nodes.get(v).g, { scale: 0.5, transformOrigin: "50% 50%", duration: 0.4, ease: "back.out(1.6)" }, t + 0.2);
+        });
+        const n30 = at0(30);
+        const n20 = at0(20);
+        const partTags = [
+          [props.parts.root, r.x + 190, r.y - 10, "blue"],
+          [props.parts.child, n30.x - 170, n30.y - 30, "paper"],
+          [props.parts.leaf, n20.x, n20.y + 120, "paper"],
+        ].map(([label, x, y, tone], i) => {
+          const t = shop.tag(stage, label, x, y, { tone, rot: i % 2 ? 3 : -3 });
+          shop.pop(tl, t, x, y, at + 1.4 + i * 0.12);
+          return t;
+        });
+        tl.addLabel("arbol");
+
+        // regla: the tags leave; the root and its children are written in order under the tree
+        at = tl.duration();
+        tl.to(partTags, { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        const order = bstTree.drawOrder(stage, tree, props.focus);
+        tl.from(order.ring, { drawSVG: 0, duration: 0.45, ease: "power2.out" }, at + 0.3);
+        order.items.forEach(({ line, number, sign }, i) => {
+          const t = at + 0.6 + i * 0.3;
+          tl.from(line, { drawSVG: 0, duration: 0.35, ease: "power2.out" }, t);
+          tl.from(number, { y: -40, opacity: 0, duration: 0.45, ease: "expo.out" }, t + 0.15);
+          if (sign) tl.from(sign, { scale: 0, transformOrigin: "50% 50%", duration: 0.3, ease: "expo.out" }, t + 0.3);
+        });
+        tl.addLabel("regla");
+        return tl;
+      },
+    });
+  })();
+</script>

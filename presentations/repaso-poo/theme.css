@@ -1,0 +1,7 @@
+@import url("../../library/shared/brand.css");
+
+:root {
+  /* Topic extras: ice-cream scoops only (see summary.md, Look). */
+  --fresa: #f9a8d4;
+  --chocolate: #8b5e3c;
+}

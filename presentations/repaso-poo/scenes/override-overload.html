@@ -1,0 +1,114 @@
+<!--
+  override-overload: two halves. Left, overriding: the child's trabajar() covers the parent's (between
+  parent and child). Right, overloading: two servir() signatures in one class (Java, C#). Python has no
+  real overloading: one servir with a default value makes cones of 1 and 3 scoops; and two defs with the
+  same name keep only the last one. The parent card is `.override-parent` (scene 9 grows out of it).
+-->
+<template>
+  <style>
+    .split { stroke: var(--muted); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 2 16; }
+    .call { font-family: var(--font-code); font-size: 40px; fill: var(--ink); letter-spacing: -0.03em; }
+    .call-str { fill: var(--accent); }
+    .strike { stroke: var(--block); stroke-width: 10; stroke-linecap: round; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, text, canvas, writeIn, block } = window.sceneKit;
+    const { shop } = window;
+    const SIZE = { band: 76, row: 56 };
+
+    // A call like servir("fresa", 3) with the string in blue.
+    function callText(parent, x, y, before, str, after) {
+      const t = text(parent, "", { x, y, class: "call", "dominant-baseline": "central" });
+      svg("tspan", {}, t).textContent = before;
+      svg("tspan", { class: "call-str" }, t).textContent = str;
+      svg("tspan", {}, t).textContent = after;
+      return t;
+    }
+
+    registerScene({
+      id: "override-overload",
+      props: {
+        headline: "Sobrescritura vs sobrecarga", // headline, top left
+        left: "Sobrescribir", // title of the left half
+        right: "Sobrecargar", // title of the right half
+        overridePill: "entre padre e hija", // pill under the left half
+        overloadPill: "en la misma clase", // pill under the right card
+        merged: ["def servir(self, sabor, bolas=1):"], // Python's way
+        trap: ["def servir(self, sabor):", "def servir(self, sabor, bolas):"], // two defs, the last one wins
+        trapPill: "gana la última", // pill on the second def
+      },
+      steps: ["override", "overload", "python", "trampa"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        shop.headline(tl, root, props.headline, 0);
+        const split = svg("line", { x1: 960, y1: 290, x2: 960, y2: 1000, class: "split" }, stage);
+        tl.from(split, { opacity: 0, duration: 0.4, ease: "power2.out" }, 0.3);
+
+        // override: parent and child with the same trabajar(); the child's covers the parent's
+        let at = tl.duration();
+        writeIn(tl, block(root, props.left, { x: 160, y: 262, className: "t56" }), at, 0.4);
+        const parent = shop.card(stage, 230, 370, 440, "Robot", ["trabajar()"], { ...SIZE, cls: "override-parent" });
+        const child = shop.card(stage, 230, 640, 440, "RobotHeladero", [{ text: "trabajar()", tone: "accent" }], SIZE);
+        const arrow = shop.inherits(stage, { x: 450, y: 634 }, { x: 450, y: 530 });
+        shop.pop(tl, parent.g, 450, 446, at + 0.2);
+        tl.from(child.g, { y: 60, opacity: 0, duration: 0.5, ease: "expo.out" }, at + 0.45);
+        tl.from(arrow.g, { opacity: 0, duration: 0.3, ease: "power2.out" }, at + 0.7);
+        tl.to(parent.rows[0].t, { fill: "var(--muted)", duration: 0.4, ease: "power2.out" }, at + 0.9);
+        const overridePill = shop.tag(stage, props.overridePill, 450, 900, { tone: "blue", rot: -2 });
+        shop.pop(tl, overridePill, 450, 900, at + 1.0);
+        tl.addLabel("override");
+
+        // overload: one class, two servir signatures
+        at = tl.duration();
+        writeIn(tl, block(root, props.right, { x: 1030, y: 262, className: "t56" }), at, 0.4);
+        const cls = shop.card(stage, 1040, 370, 580, "RobotHeladero", ["servir(sabor)", "servir(sabor, bolas)"], SIZE);
+        shop.pop(tl, cls.g, 1330, 474, at + 0.2);
+        const overloadPill = shop.tag(stage, props.overloadPill, 1330, 665, { tone: "blue", rot: 2 });
+        shop.pop(tl, overloadPill, 1330, 665, at + 0.6);
+        tl.addLabel("overload");
+
+        // python: one method with a default value; two calls make cones of 1 and 3 scoops
+        at = tl.duration();
+        const merged = shop.code(root, props.merged, 1020, 700);
+        shop.typeIn(tl, merged.lineEls, at);
+        tl.to(overloadPill, { opacity: 0, duration: 0.2, ease: "power3.in" }, at);
+        const cones = [
+          { call: ['servir(', '"fresa"', ")"], x: 1030, cx: 1200, n: 1 },
+          { call: ['servir(', '"fresa"', ", 3)"], x: 1400, cx: 1610, n: 3 },
+        ].map((spec, i) => {
+          const t = callText(stage, spec.x, 800, ...spec.call);
+          writeIn(tl, t, at + 0.6 + i * 0.5, 0.4);
+          const g = svg("g", {}, stage);
+          const c = shop.cone(g, spec.cx, 944, { w: 60, h: 70 });
+          for (let k = 0; k < spec.n; k += 1) shop.scoop(g, spec.cx, c.scoopY(k, 24), 24, "fresa");
+          shop.pop(tl, g, spec.cx, 980, at + 0.9 + i * 0.5);
+          return { t, g };
+        });
+        tl.addLabel("python");
+
+        // trampa: two defs with the same name; the first is crossed out, the second wins
+        at = tl.duration();
+        const gone = [merged.block, ...cones.flatMap((c) => [c.t, c.g])];
+        tl.to(gone, { opacity: 0, duration: 0.25, ease: "power3.in" }, at);
+        const trap = shop.code(root, props.trap, 1020, 740);
+        shop.typeIn(tl, trap.lineEls, at + 0.3);
+        const box = trap.spanBox(0, 0, props.trap[0].length);
+        const strike = svg("line", { x1: box.x - 8, y1: box.y + 30, x2: box.x + box.width + 8, y2: box.y + 30, class: "strike" }, stage);
+        tl.from(strike, { drawSVG: 0, duration: 0.4, ease: "power2.out" }, at + 1.0);
+        const win = shop.tag(stage, props.trapPill, 1500, 900, { tone: "blue", rot: -3 });
+        shop.pop(tl, win, 1500, 900, at + 1.3);
+        tl.addLabel("trampa");
+        return tl;
+      },
+    });
+  })();
+</script>

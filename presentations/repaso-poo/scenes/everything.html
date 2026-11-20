@@ -1,0 +1,80 @@
+<!--
+  everything: the shop front of the cover again, with a sticker on each part naming the concept it
+  explains: OOP on the robots, data structures on the menu, the cone, the line and the order board.
+  Last, the closing line on a blue banner.
+-->
+<template>
+  <style>
+    .banner { fill: var(--accent); stroke: var(--ink); stroke-width: 6; }
+  </style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas } = window.sceneKit;
+    const sk = window.stickerKit;
+    const { shop } = window;
+
+    registerScene({
+      id: "everything",
+      props: {
+        headline: "Todo en su lugar", // headline, top left
+        oop: [
+          ["clase · objeto", 380, 560, -5],
+          ["encapsulamiento", 790, 962, 3],
+          ["herencia · polimorfismo", 500, 885, -2],
+          ["interfaz", 1000, 780, 6],
+        ], // [sticker, x, y, tilt] on the robots
+        structures: [
+          ["lista", 900, 430, 5],
+          ["pila", 600, 790, -4],
+          ["árbol", 1280, 300, -6],
+          ["recursividad", 1480, 630, 3],
+          ["cola", 1480, 700, -3],
+        ], // [sticker, x, y, tilt] on the menu, cone, board and line
+        idea: ["Clases para modelar,", "estructuras para organizar"], // closing line, two lines
+      },
+      steps: ["poo", "estructuras", "idea"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+        const parts = shop.shopFront(stage);
+        tl.from(stage, { opacity: 0, duration: 0.4, ease: "power2.out" }, 0);
+        shop.headline(tl, root, props.headline, 0.2);
+        const stickers = svg("g", {}, stage);
+
+        const put = (list, at, tone) =>
+          list.forEach(([label, x, y, rot], i) => {
+            const t = shop.tag(stickers, label, x, y, { tone, rot, size: 40 });
+            shop.pop(tl, t, x, y, at + i * 0.18, { from: 1.4 });
+          });
+
+        // poo: stickers on the robots
+        let at = tl.duration();
+        put(props.oop, at, "blue");
+        shop.press(tl, parts.robi.g, at + 0.1);
+        shop.press(tl, parts.caja.g, at + 0.2);
+        tl.addLabel("poo");
+
+        // estructuras: stickers on the menu, the cone, the board and the line
+        at = tl.duration();
+        put(props.structures, at, "navy");
+        tl.addLabel("estructuras");
+
+        // idea: the closing line on a banner across the middle
+        at = tl.duration();
+        const banner = svg("g", {}, stage);
+        sk.sticker(banner, "rect", { x: 260, y: 400, width: 1400, height: 280, rx: 40 }, "banner", 12);
+        props.idea.forEach((line, i) => sk.stickerText(banner, line, 960, 490 + i * 100, 72));
+        shop.pop(tl, banner, 960, 540, at, { from: 0.8, duration: 0.6 });
+        tl.addLabel("idea");
+        return tl;
+      },
+    });
+  })();
+</script>

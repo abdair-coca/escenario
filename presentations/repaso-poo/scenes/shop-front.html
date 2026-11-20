@@ -1,0 +1,67 @@
+<!--
+  shop-front: the cover. The headline writes in, then the robot ice-cream shop pops in piece by piece
+  (awning, menu, Robi and Caja, counter, cone, order board, customers). Two pills split the review:
+  part 1 (OOP) on the counter in front of the robots, part 2 (data structures) over the shop's things.
+-->
+<template>
+  <style></style>
+</template>
+<script src="/player/vendor/gsap/DrawSVGPlugin.min.js"></script>
+<script src="/library/shared/scene-kit.js"></script>
+<script src="/library/shared/sticker-kit.js"></script>
+<script src="/library/shared/code-panel.js"></script>
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const { svg, canvas, writeIn, block } = window.sceneKit;
+    const { shop } = window;
+
+    registerScene({
+      id: "shop-front",
+      props: {
+        headline: "Repaso final: POO", // headline, top left
+        subtitle: "en la heladería de los robots", // line under the headline
+        partOne: "Parte 1 · POO", // pill on the counter
+        partTwo: "Parte 2 · Estructuras", // pill over the order board
+      },
+      steps: ["titulo", "tienda", "partes"],
+      build(root, props, gsap) {
+        shop.setup(root);
+        const stage = canvas(root);
+        const tl = gsap.timeline();
+
+        // titulo: headline and subtitle
+        shop.headline(tl, root, props.headline, 0.1);
+        writeIn(tl, block(root, props.subtitle, { x: 164, y: 214, className: "t56" }), 0.5, 0.6);
+        tl.addLabel("titulo");
+
+        // tienda: the shop pops in piece by piece
+        let at = tl.duration();
+        const p = shop.shopFront(stage);
+        tl.from(p.ground, { scaleY: 0, svgOrigin: "960 1080", duration: 0.4, ease: "expo.out" }, at);
+        tl.from(p.wall, { opacity: 0, scale: 0.9, svgOrigin: "610 1000", duration: 0.5, ease: "expo.out" }, at + 0.1);
+        tl.from(p.awning, { y: -80, opacity: 0, duration: 0.5, ease: "back.out(1.6)" }, at + 0.25);
+        shop.pop(tl, p.menu, 610, 484, at + 0.45);
+        tl.from(p.robi.g, { y: 140, opacity: 0, duration: 0.5, ease: "back.out(1.4)" }, at + 0.6);
+        tl.from(p.caja.g, { y: 140, opacity: 0, duration: 0.5, ease: "back.out(1.4)" }, at + 0.72);
+        tl.from(p.counter, { opacity: 0, duration: 0.3, ease: "power2.out" }, at + 0.55);
+        shop.pop(tl, p.cone, 600, 760, at + 0.9);
+        shop.pop(tl, p.board, 1480, 440, at + 1.0);
+        p.customers.forEach((c, i) => tl.from(c, { y: 60, opacity: 0, duration: 0.45, ease: "back.out(1.6)" }, at + 1.15 + i * 0.1));
+        tl.addLabel("tienda");
+
+        // partes: part 1 on the counter, the robots press; part 2 above the board, the shop's things press
+        at = tl.duration();
+        const one = shop.tag(stage, props.partOne, 610, 920, { size: 48, tone: "blue", rot: -3 });
+        shop.pop(tl, one, 610, 920, at);
+        shop.press(tl, p.robi.g, at + 0.35);
+        shop.press(tl, p.caja.g, at + 0.45);
+        const two = shop.tag(stage, props.partTwo, 1480, 230, { size: 48, tone: "blue", rot: 3 });
+        shop.pop(tl, two, 1480, 230, at + 0.8);
+        [p.menu, p.cone, p.board, ...p.customers].forEach((el, i) => shop.press(tl, el, at + 1.15 + i * 0.08));
+        tl.addLabel("partes");
+        return tl;
+      },
+    });
+  })();
+</script>

@@ -1,0 +1,280 @@
+{
+  "title": "Repaso final: POO y estructuras de datos",
+  "lang": "es",
+  "theme": "theme.css",
+  "scenes": [
+    {
+      "scene": "scenes/shop-front",
+      "title": "La heladería de los robots",
+      "transition": {
+        "type": "cut"
+      },
+      "notes": {
+        "titulo": "Último repaso antes del examen. Hoy recorremos todo el curso en un solo lugar.",
+        "tienda": "Una heladería atendida por robots. Todo lo que vimos en el semestre está aquí dentro.",
+        "partes": "Primero, cómo se construyen los robots: eso es POO. Después, cómo se organizan los sabores, los clientes y los pedidos: estructuras de datos."
+      }
+    },
+    {
+      "scene": "scenes/class-object",
+      "title": "Clase y objeto",
+      "transition": {
+        "type": "zoom",
+        "target": ".robot-robi"
+      },
+      "notes": {
+        "plano": "La clase es el plano. Dice qué tiene y qué hace un robot, pero no es ningún robot.",
+        "objetos": "Con un plano fabrico todos los robots que quiera. Cada uno es un objeto, una instancia de la clase.",
+        "independientes": "Cada objeto tiene sus propios datos. Si Caja gasta batería, Robi no se entera."
+      }
+    },
+    {
+      "scene": "scenes/attributes-methods",
+      "title": "Atributos y métodos",
+      "transition": {
+        "type": "reveal",
+        "target": ".made-robi"
+      },
+      "notes": {
+        "atributos": "Los atributos son los datos del objeto: lo que tiene. Nombre y batería.",
+        "metodos": "Los métodos son funciones que viven dentro de la clase: lo que sabe hacer.",
+        "llamada": "Llamo a un método con el punto. Y el método cambia los atributos de ese objeto: la batería baja a 90."
+      }
+    },
+    {
+      "scene": "scenes/constructor",
+      "title": "El constructor",
+      "transition": {
+        "type": "push",
+        "direction": "left"
+      },
+      "notes": {
+        "llamada": "Cuando escribo Robot con paréntesis, Python llama solo al constructor, __init__.",
+        "self": "self es el objeto que se está armando. «Este robot».",
+        "rellena": "El constructor llena los atributos: self.nombre es «el nombre de este robot».",
+        "sale": "Sale listo, y la variable robi lo apunta."
+      }
+    },
+    {
+      "scene": "scenes/encapsulation",
+      "title": "Encapsulamiento",
+      "transition": {
+        "type": "zoom",
+        "target": ".battery"
+      },
+      "notes": {
+        "privado": "En Python el guion bajo es la convención: uno es «protegido», dos es «privado».",
+        "directo": "Desde afuera no puedo leer robi.__bateria: AttributeError.",
+        "metodo": "Para tocarla uso un método. El objeto decide cómo: la batería sube a 120.",
+        "valida": "Y el método puede rechazar valores malos: -50 no pasa el if. Eso es encapsular: proteger los datos."
+      }
+    },
+    {
+      "scene": "scenes/inheritance",
+      "title": "Herencia",
+      "transition": {
+        "type": "wipe"
+      },
+      "notes": {
+        "padre": "Esta es la clase padre: lo común a todos los robots.",
+        "hijos": "Las hijas heredan todo sin escribirlo otra vez.",
+        "propio": "Y cada una agrega lo suyo: el heladero tiene sabores, el cajero tiene caja.",
+        "super": "super() llama al constructor del padre. Prueba de oro: un heladero ES UN robot."
+      }
+    },
+    {
+      "scene": "scenes/polymorphism",
+      "title": "Polimorfismo",
+      "transition": {
+        "type": "push",
+        "direction": "left"
+      },
+      "notes": {
+        "sobrescribir": "Las dos hijas reescriben trabajar(). Mismo nombre, otro comportamiento: eso es sobrescribir.",
+        "bucle": "El bucle no sabe ni le importa qué tipo de robot es r.",
+        "respuestas": "El mismo mensaje, y cada uno responde a su manera.",
+        "idea": "Eso es polimorfismo: muchas formas detrás de una sola llamada."
+      }
+    },
+    {
+      "scene": "scenes/override-overload",
+      "title": "Sobrescritura vs sobrecarga",
+      "transition": {
+        "type": "push",
+        "direction": "left"
+      },
+      "notes": {
+        "override": "Sobrescribir: la hija reemplaza el método del padre, con la misma firma.",
+        "overload": "Sobrecargar: mismo nombre, distintos parámetros, en la misma clase. Así se hace en Java o C#.",
+        "python": "Python no tiene sobrecarga real: usamos valores por defecto. Un método, dos formas de llamarlo.",
+        "trampa": "Ojo en el examen: si definen dos veces el mismo método en Python, la segunda borra a la primera."
+      }
+    },
+    {
+      "scene": "scenes/abstraction",
+      "title": "Abstracción",
+      "transition": {
+        "type": "reveal",
+        "target": ".override-parent"
+      },
+      "notes": {
+        "ocultar": "Para usar a Robi aprieto «trabajar». No necesito saber cómo gira cada engranaje.",
+        "abstracta": "¿Tiene sentido un robot genérico que no sabe hacer nada? No. Robot se vuelve una clase abstracta.",
+        "error": "No se puede crear un objeto de una clase abstracta: TypeError.",
+        "obliga": "Y obliga a las hijas a implementar trabajar(). Si no, tampoco se pueden crear."
+      }
+    },
+    {
+      "scene": "scenes/interfaces",
+      "title": "Interfaces",
+      "transition": {
+        "type": "push",
+        "direction": "left"
+      },
+      "notes": {
+        "contrato": "Una interfaz es un contrato: quien lo firme se compromete a tener estos métodos.",
+        "firmantes": "Un robot y una máquina de monedas no son familia, pero los dos pueden cobrar.",
+        "uso": "La función solo pide que sepa cobrar. Polimorfismo otra vez.",
+        "diferencia": "Herencia es lo que eres; interfaz es lo que sabes hacer. Y una clase puede firmar varias."
+      }
+    },
+    {
+      "scene": "scenes/lists",
+      "title": "Listas",
+      "transition": {
+        "type": "wipe",
+        "color": "var(--accent-3)"
+      },
+      "notes": {
+        "lista": "Parte 2. La lista guarda en orden. Cada lugar tiene un número: el índice.",
+        "indice": "El primero es el cero. Clásico error de examen.",
+        "agregar": "append agrega al final, y len cuenta cuántos hay."
+      }
+    },
+    {
+      "scene": "scenes/stacks",
+      "title": "Pilas",
+      "transition": {
+        "type": "reveal",
+        "target": ".tub-chocolate"
+      },
+      "notes": {
+        "apilar": "Cada bola nueva va arriba. Siempre arriba: la cima.",
+        "sacar": "Y para sacar, solo puedo quitar la de arriba: la última que entró.",
+        "lifo": "Así funciona deshacer: lo último que hiciste es lo primero que se deshace."
+      }
+    },
+    {
+      "scene": "scenes/queues",
+      "title": "Colas",
+      "transition": {
+        "type": "push",
+        "direction": "left"
+      },
+      "notes": {
+        "fila": "En una cola se entra por atrás y se sale por adelante.",
+        "llega": "El que llega se pone al final.",
+        "atiende": "Y se atiende al primero que llegó: popleft devuelve a Ana.",
+        "fifo": "La pila saca el último; la cola, el primero. Ese es todo el truco."
+      }
+    },
+    {
+      "scene": "scenes/recursion",
+      "title": "Recursividad",
+      "transition": {
+        "type": "zoom",
+        "target": ".served-cone"
+      },
+      "notes": {
+        "definicion": "Contar las bolas: una, más las bolas del resto del cono. La función se llama a sí misma.",
+        "baja": "Cada llamada recibe un cono más pequeño.",
+        "base": "Cono vacío: cero. Es el caso base. Sin él, la función no termina nunca.",
+        "sube": "Y de regreso, cada llamada suma uno: 1, 2, 3.",
+        "pila": "¿Se dieron cuenta? La computadora guarda las llamadas en una pila."
+      }
+    },
+    {
+      "scene": "scenes/tree-parts",
+      "title": "Árboles binarios",
+      "transition": {
+        "type": "wipe"
+      },
+      "notes": {
+        "nodo": "Un nodo es un objeto: guarda un pedido y dos enlaces, izquierda y derecha. POO otra vez.",
+        "arbol": "Arriba la raíz, cada nodo tiene hasta dos hijos, y los de abajo del todo son hojas.",
+        "regla": "La regla del árbol de búsqueda: menores a la izquierda, mayores a la derecha, en cada nodo."
+      }
+    },
+    {
+      "scene": "library/bst-walk",
+      "title": "Buscar el pedido 60",
+      "props": {
+        "title": "Buscar el pedido 60",
+        "values": [
+          50,
+          30,
+          70,
+          20,
+          40,
+          60,
+          80
+        ],
+        "target": 60,
+        "mode": "search",
+        "token": "60",
+        "enter": "slide",
+        "previousTitle": "Árboles binarios",
+        "previousFocus": 50,
+        "code": [
+          "def buscar(nodo, valor):",
+          "    if nodo is None:",
+          "        return False",
+          "    if valor == nodo.valor:",
+          "        return True",
+          "    if valor < nodo.valor:",
+          "        return buscar(nodo.izq, valor)",
+          "    return buscar(nodo.der, valor)"
+        ],
+        "lines": {
+          "left": [
+            5,
+            6
+          ],
+          "right": [
+            7
+          ],
+          "empty": [
+            1,
+            2
+          ],
+          "found": [
+            3,
+            4
+          ]
+        }
+      },
+      "transition": {
+        "type": "cut"
+      },
+      "notes": {
+        "codigo": "Buscar también es recursivo: si no está aquí, busco en un solo lado.",
+        "comparar-50": "Sesenta es mayor que cincuenta: toda la izquierda queda descartada.",
+        "comparar-70": "Menor que setenta: a la izquierda.",
+        "encontrado": "Tres comparaciones y no siete. Por eso los árboles son rápidos."
+      }
+    },
+    {
+      "scene": "scenes/everything",
+      "title": "Todo en su lugar",
+      "transition": {
+        "type": "reveal",
+        "target": ".node-60"
+      },
+      "notes": {
+        "poo": "Los robots: clases, objetos, encapsulamiento, herencia, polimorfismo e interfaces.",
+        "estructuras": "Y la tienda: lista, pila, cola y árbol. Y la recursividad que los recorre.",
+        "idea": "Si recuerdan una sola frase para el examen, que sea esta."
+      }
+    }
+  ]
+}
